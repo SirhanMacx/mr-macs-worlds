@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Mr. Mac's Worlds — Explore. Learn. Master.</title>
+  <meta name="description" content="A 3D explorable learning world for AP Psychology and Global History 9 — walk the brain, sail the Silk Road, and practice the real exam skills." />
+  <meta name="theme-color" content="#070b16" />
+  <meta name="color-scheme" content="dark" />
+  <meta property="og:title" content="Mr. Mac's Worlds" />
+  <meta property="og:description" content="Explore 3D worlds and master AP Psychology and the NYS Global History Regents." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23070b16'/%3E%3Ccircle cx='50' cy='50' r='28' fill='none' stroke='%2359b0ff' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='10' fill='%23ffb347'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./css/styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <!-- HUD -->
+  <div id="hud"></div>
+
+  <!-- proximity hint lives inside HUD via JS -->
+
+  <!-- skill-station / content panel overlay -->
+  <div id="panel-overlay">
+    <div id="panel-root" class="panel" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <!-- loading screen -->
+  <div id="loading">
+    <div class="load-inner">
+      <div class="load-orb"></div>
+      <h1>Mr. Mac's Worlds</h1>
+      <p>Loading the worlds…</p>
+    </div>
+  </div>
+
+  <!-- WebGL fallback -->
+  <div id="webgl-fallback">
+    <div class="fallback-inner">
+      <h1>Mr. Mac's Worlds</h1>
+      <p>This 3D experience needs WebGL, which your browser or device doesn't seem to support right now.</p>
+      <p>Try a recent version of Chrome, Edge, or Firefox — and make sure hardware acceleration is on. On a school Chromebook, ask your teacher to enable WebGL if it's blocked.</p>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
