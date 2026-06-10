@@ -1,309 +1,668 @@
 {
-  "_meta": {
-    "title": "Mr. Mac's Worlds — World Content",
-    "note": "Content nodes, skill-station prompts, model answers and rubrics. AP Psych honors the 2024 CED (no Maslow hierarchy / Kohlberg / Gardner taxonomy / Freud psychosexual / named emotion theories as testable). Global uses the real NYS Enduring Issues framing (Conflict, Power, Inequality, Ideas & Beliefs, Scarcity, Technology) and the HAPP-E / CRQ task formats.",
-    "version": "1.0.0"
-  },
-
-  "appsych": {
-    "title": "The Mind Atlas",
-    "subtitle": "An explorable brain — walk the regions, master the 2024 CED.",
-    "theme": "neural",
-    "nodes": [
-      {
-        "id": "ap-methods",
-        "label": "Research Methods Ridge",
-        "unit": "Unit 0 · Research Methods",
-        "pos": [-22, 0, -10],
-        "color": "#38bdf8",
-        "blurb": "Psychology is a science: it tests ideas with evidence.",
-        "terms": [
-          { "term": "Operational definition", "def": "A precise statement of how a variable is measured or manipulated (e.g., 'stress' = score on the Perceived Stress Scale)." },
-          { "term": "Experiment", "def": "The only method that can show cause and effect, because it manipulates an independent variable and uses random assignment to control confounds." },
-          { "term": "Random assignment vs. random sampling", "def": "Random assignment (to groups) supports causal claims; random sampling (from a population) supports generalization." },
-          { "term": "Correlation", "def": "A measure of how two variables move together (-1 to +1). Correlation is NOT causation." },
-          { "term": "Descriptive statistics", "def": "Mean, median, mode, range, and standard deviation summarize data; a positively skewed distribution has a tail to the right." }
-        ]
-      },
-      {
-        "id": "ap-bio",
-        "label": "Biological Bases Brainstem",
-        "unit": "Unit 1 · Biological Bases of Behavior",
-        "pos": [0, 0, -24],
-        "color": "#22d3ee",
-        "blurb": "Behavior has a biological substrate — neurons, hormones, and brain regions.",
-        "terms": [
-          { "term": "Neuron & action potential", "def": "A neuron fires all-or-none when input crosses threshold; the signal travels down the axon to the terminal buttons." },
-          { "term": "Neurotransmitters", "def": "Chemical messengers crossing the synapse. Dopamine (reward/movement), serotonin (mood/sleep), acetylcholine (muscle action, memory), GABA (inhibitory)." },
-          { "term": "Limbic system", "def": "Amygdala (emotion, especially fear), hippocampus (forming new memories), hypothalamus (drives, homeostasis)." },
-          { "term": "Cerebral cortex lobes", "def": "Frontal (judgment, motor), parietal (touch), occipital (vision), temporal (hearing)." },
-          { "term": "Plasticity & split brain", "def": "The brain rewires after damage; severing the corpus callosum reveals lateralized functions (language usually left-hemisphere)." }
-        ]
-      },
-      {
-        "id": "ap-cognition",
-        "label": "Cognition Cortex",
-        "unit": "Unit 2 · Cognition",
-        "pos": [22, 0, -12],
-        "color": "#818cf8",
-        "blurb": "How we sense, perceive, remember, and think — and where it goes wrong.",
-        "terms": [
-          { "term": "Sensation vs. perception", "def": "Sensation is detecting raw stimuli; perception is organizing and interpreting it (top-down processing uses expectations)." },
-          { "term": "Three-stage memory model", "def": "Sensory memory → working/short-term memory → long-term memory; encoding, storage, retrieval at each step." },
-          { "term": "Encoding strategies", "def": "Chunking, mnemonics, the spacing effect, and deep (semantic) processing all strengthen later recall." },
-          { "term": "Memory errors", "def": "Misinformation effect and source amnesia (Loftus) show memory is reconstructive, not a recording." },
-          { "term": "Heuristics & biases", "def": "Mental shortcuts: availability and representativeness heuristics speed thinking but cause predictable errors; confirmation bias seeks confirming evidence." }
-        ]
-      },
-      {
-        "id": "ap-dev",
-        "label": "Development & Learning Lobe",
-        "unit": "Unit 3 · Development & Learning",
-        "pos": [14, 0, 16],
-        "color": "#34d399",
-        "blurb": "How people change over a lifespan and how experience shapes behavior.",
-        "terms": [
-          { "term": "Piaget's stages", "def": "Sensorimotor (object permanence), preoperational (egocentrism), concrete operational (conservation), formal operational (abstract reasoning)." },
-          { "term": "Attachment", "def": "Harlow's monkeys showed contact comfort over food; Ainsworth's Strange Situation classified secure vs. insecure attachment." },
-          { "term": "Classical conditioning", "def": "Pavlov: a neutral stimulus paired with a US becomes a CS that triggers a CR (acquisition, extinction, generalization)." },
-          { "term": "Operant conditioning", "def": "Skinner: behavior is shaped by consequences. Reinforcement increases behavior; partial (variable-ratio) schedules resist extinction best." },
-          { "term": "Observational learning", "def": "Bandura's Bobo doll: we learn by watching and imitating models (vicarious reinforcement)." }
-        ]
-      },
-      {
-        "id": "ap-social",
-        "label": "Social & Personality Plateau",
-        "unit": "Unit 4 · Social Psychology & Personality",
-        "pos": [-14, 0, 16],
-        "color": "#f87171",
-        "blurb": "How others shape us — and how we explain ourselves and each other.",
-        "terms": [
-          { "term": "Fundamental attribution error", "def": "We overweight personality and underweight the situation when explaining others' behavior." },
-          { "term": "Conformity & obedience", "def": "Asch (line-judgment conformity) and Milgram (obedience to authority) show the power of social pressure." },
-          { "term": "Cognitive dissonance", "def": "Festinger: holding conflicting attitudes creates tension we reduce by changing an attitude or behavior." },
-          { "term": "Big Five traits", "def": "Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism (OCEAN) — the dominant trait model." },
-          { "term": "Humanistic view of self", "def": "Rogers: people grow toward their potential given unconditional positive regard, empathy, and genuineness." }
-        ]
-      },
-      {
-        "id": "ap-health",
-        "label": "Mental & Physical Health Hollow",
-        "unit": "Unit 5 · Mental & Physical Health",
-        "pos": [-24, 0, 6],
-        "color": "#2dd4bf",
-        "blurb": "Stress, disorders, and the evidence-based treatments that help. (Support: 988 / Crisis Text Line 741741)",
-        "terms": [
-          { "term": "Diagnosing disorders", "def": "The DSM-5-TR classifies disorders by clinically significant distress or impairment; clinicians weigh dysfunction, distress, deviance, danger." },
-          { "term": "Anxiety & mood disorders", "def": "Generalized anxiety, panic, and phobias involve excessive fear; major depressive and bipolar disorders involve mood dysregulation." },
-          { "term": "Biomedical therapies", "def": "SSRIs raise serotonin availability for depression/anxiety; antipsychotics block dopamine but risk tardive dyskinesia." },
-          { "term": "Psychotherapies", "def": "CBT challenges maladaptive thoughts and behaviors; exposure therapy treats anxiety; person-centered therapy uses unconditional positive regard." },
-          { "term": "Stress & health", "def": "Chronic stress activates the HPA axis and harms health; the biopsychosocial model treats well-being as biological + psychological + social." }
-        ]
-      }
+ "_meta": {
+  "title": "Mr. Mac's Worlds — World Content",
+  "note": "Content nodes, skill-station prompts, model answers and rubrics. AP Psych honors the 2024 CED (no Maslow hierarchy / Kohlberg / Gardner taxonomy / Freud psychosexual / named emotion theories as testable). Global uses the real NYS Enduring Issues framing (Conflict, Power, Inequality, Ideas & Beliefs, Scarcity, Technology) and the HAPP-E / CRQ task formats. v2 adds two Global 9 nodes (g9-renaissance, g9-encounters) so the open world covers the full Regents year.",
+  "version": "1.0.0"
+ },
+ "appsych": {
+  "title": "The Mind Atlas",
+  "subtitle": "An explorable brain — walk the regions, master the 2024 CED.",
+  "theme": "neural",
+  "nodes": [
+   {
+    "id": "ap-methods",
+    "label": "Research Methods Ridge",
+    "unit": "Unit 0 · Research Methods",
+    "pos": [
+     -22,
+     0,
+     -10
     ],
-
-    "mcq": {
-      "station": "MCQ Portal",
-      "blurb": "75 MCQs in 90 minutes on the real exam (~72 sec each). Pull a random set from the live bank.",
-      "bank": "appsych",
-      "perRound": 10
-    },
-
-    "frq": {
-      "station": "Free-Response Lab",
-      "blurb": "Section II is one-third of your score: an AAQ (Article Analysis, 7 pts, ~25 min) and an EBQ (Evidence-Based, 7 pts, ~45 min). Read → think → reveal model + rubric.",
-      "items": [
-        {
-          "type": "AAQ",
-          "title": "AAQ · Sleep & Memory Consolidation",
-          "stimulus": "Researchers randomly assigned 60 college students to either sleep 8 hours or stay awake the night after learning a list of 40 word pairs. The next morning all students were tested on recall. The sleep group recalled a mean of 31 pairs (SD = 4); the sleep-deprived group recalled a mean of 22 pairs (SD = 5). The difference was statistically significant (p < .01).",
-          "prompt": "Respond to the following. Use the study above.\nA. Identify the research method used.\nB. State the operational definition of memory in this study.\nC. Identify the dependent variable.\nD. Explain one way the researchers could increase generalizability.\nE. Identify one ethical guideline the researchers should follow.\nF. Explain whether the data support OR refute the claim that sleep aids memory consolidation. Use specific data.",
-          "rubric": [
-            { "part": "A (1 pt)", "criterion": "Names experiment / experimental method (random assignment to conditions)." },
-            { "part": "B (1 pt)", "criterion": "Memory operationalized as the number of word pairs correctly recalled." },
-            { "part": "C (1 pt)", "criterion": "Dependent variable = recall score (word pairs recalled the next morning)." },
-            { "part": "D (1 pt)", "criterion": "A valid generalizability fix, e.g., use a random sample from a broader population than one college, or replicate with varied ages." },
-            { "part": "E (1 pt)", "criterion": "A real ethical guideline: informed consent, right to withdraw, debriefing, or protection from harm (sleep deprivation)." },
-            { "part": "F (2 pts)", "criterion": "Takes a position (data SUPPORT the claim) AND cites specific data (31 vs. 22 pairs; significant at p < .01) with reasoning that more sleep → better consolidation." }
-          ],
-          "model": "A. Experiment — students were randomly assigned to a sleep or sleep-deprived condition.\nB. Memory was operationalized as the number of the 40 word pairs a student correctly recalled.\nC. The dependent variable is the recall score the next morning.\nD. Generalizability would improve by drawing a random sample from a wider population (not just one college) and replicating across ages, so the finding isn't limited to young adults.\nE. The researchers must obtain informed consent and allow participants to withdraw, since sleep deprivation could cause discomfort; debriefing afterward is also required.\nF. The data SUPPORT the claim. The sleep group recalled a mean of 31 pairs versus 22 for the sleep-deprived group, a gap that was statistically significant (p < .01). Because the only systematic difference between groups was sleep, the higher recall is reasonably attributed to sleep aiding memory consolidation."
-        },
-        {
-          "type": "EBQ",
-          "title": "EBQ · Does spacing study sessions improve learning?",
-          "stimulus": "SOURCE 1 (Cepeda et al.): Across 250+ experiments, material reviewed in spaced sessions was retained far better on delayed tests than the same material crammed in one massed session; the advantage grew as the final test was delayed.\n\nSOURCE 2 (student survey): In a survey of 400 high-schoolers, 78% reported studying for tests in a single session the night before. Those who self-reported spacing their study over several days had higher mean exam scores (88 vs. 79).\n\nSOURCE 3 (classroom experiment): One class practiced vocabulary in three short spaced sessions; a matched class practiced the same total minutes in one block. Two weeks later the spaced class scored 18% higher on a surprise quiz.",
-          "prompt": "Using the sources, develop an argument about whether spacing study sessions improves long-term learning.\nA. Propose a defensible claim.\nB. Support your claim with specific evidence from one source AND explain how a psychological concept connects it to the claim.\nC. Support your claim with specific evidence from a DIFFERENT source AND explain how a psychological concept connects it to the claim.",
-          "rubric": [
-            { "part": "A · Claim (1 pt)", "criterion": "A defensible claim, e.g., 'Spacing study sessions improves long-term retention.'" },
-            { "part": "B · Evidence (1 pt)", "criterion": "Cites specific evidence from one source (e.g., Source 3's 18% higher quiz score two weeks later)." },
-            { "part": "B · Application (2 pts)", "criterion": "Connects that evidence to the claim using a course concept — the spacing effect / distributed practice strengthening consolidation and retrieval." },
-            { "part": "C · Evidence (1 pt)", "criterion": "Cites specific evidence from a DIFFERENT source (e.g., Source 1's 250+ experiments, advantage grows with delay)." },
-            { "part": "C · Application (2 pts)", "criterion": "Connects it with a course concept — e.g., the testing/retrieval and forgetting curve, distributed practice slows forgetting." }
-          ],
-          "model": "A. Claim: Spacing study sessions across several days improves long-term learning more than cramming.\nB. Source 3 shows a class that practiced the same total minutes in three spaced sessions scored 18% higher on a surprise quiz two weeks later. This reflects the spacing effect (distributed practice): repeated, spaced retrieval strengthens consolidation, so the memory is more durable than after one massed block.\nC. Source 1 reports that across 250+ experiments, spaced review beat massed review on delayed tests, and the advantage grew as the delay increased. This fits the forgetting curve — massed study fades quickly, while distributed practice repeatedly re-strengthens the trace, slowing forgetting over time. (Source 2's correlation is consistent but cannot establish cause by itself.)"
-        }
-      ]
-    }
-  },
-
-  "global9": {
-    "title": "The Trade Winds World",
-    "subtitle": "Sail the river valleys and the Silk Road — master every Regents skill.",
-    "theme": "trade",
-    "nodes": [
-      {
-        "id": "g9-origins",
-        "label": "Human Origins Outpost",
-        "unit": "Unit 1 · Human Origins & the Neolithic Revolution",
-        "pos": [-26, 0, -8],
-        "color": "#f59e0b",
-        "blurb": "From hunter-gatherers to farmers — the change that made civilization possible.",
-        "terms": [
-          { "term": "Paleolithic Era", "def": "The 'Old Stone Age': humans lived in small nomadic bands as hunter-gatherers, using chipped-stone tools (cave art at Lascaux)." },
-          { "term": "Neolithic Revolution", "def": "Around 10,000 BCE humans began farming and domesticating animals, leading to permanent settlements, surplus food, and population growth." },
-          { "term": "Domestication", "def": "Taming plants and animals for human use; a food surplus freed some people from farming and enabled specialized jobs." },
-          { "term": "Civilization", "def": "Surplus → cities, specialized labor, social classes, organized government, religion, and writing." }
-        ]
-      },
-      {
-        "id": "g9-rivers",
-        "label": "River Valley Delta",
-        "unit": "Unit 2 · River Worlds — Cities, Law, Writing, State Power",
-        "pos": [0, 0, -26],
-        "color": "#fbbf24",
-        "blurb": "Four river valleys, four cradles of civilization.",
-        "terms": [
-          { "term": "Mesopotamia (Tigris & Euphrates)", "def": "The 'land between the rivers' in the Fertile Crescent; Sumer built the first city-states with irrigation." },
-          { "term": "Cuneiform & Hammurabi's Code", "def": "Sumerians invented cuneiform (wedge writing); Hammurabi's Code was one of the first written law codes ('an eye for an eye'), revealing social class." },
-          { "term": "Egypt — Gift of the Nile", "def": "Predictable Nile floods enabled farming; pharaohs ruled as god-kings; hieroglyphs were decoded via the Rosetta Stone." },
-          { "term": "Indus Valley", "def": "Harappa and Mohenjo-Daro had advanced grid-planned cities and plumbing; their writing is still undeciphered." },
-          { "term": "Shang China (Yellow River)", "def": "Ruled the Huang He valley; oracle bones are China's earliest writing and were used for divination." }
-        ]
-      },
-      {
-        "id": "g9-belief",
-        "label": "Belief Systems Bazaar",
-        "unit": "Unit 3 · Belief Systems & Social Order",
-        "pos": [24, 0, -14],
-        "color": "#fb923c",
-        "blurb": "The major belief systems that ordered ancient societies.",
-        "terms": [
-          { "term": "Hinduism", "def": "Polytheistic and rooted in the Vedas; teaches dharma, karma, reincarnation, and a caste social structure in South Asia." },
-          { "term": "Buddhism", "def": "Founded by Siddhartha Gautama; the Four Noble Truths and Eightfold Path lead to the end of suffering; spread along trade routes." },
-          { "term": "Judaism & Christianity", "def": "Monotheistic faiths; Judaism's Torah and covenant; Christianity grew from Judaism and spread through the Roman Empire." },
-          { "term": "Islam", "def": "Monotheistic faith founded by Muhammad (7th c.); the Five Pillars and the Qur'an; spread rapidly through conquest and trade." },
-          { "term": "Confucianism & Daoism", "def": "Chinese philosophies: Confucianism stresses filial piety, hierarchy, and good government; Daoism stresses harmony with nature (the Dao)." }
-        ]
-      },
-      {
-        "id": "g9-classical",
-        "label": "Classical Empires Citadel",
-        "unit": "Unit 4 · Classical Power — Citizenship, Empire, Golden Ages, Collapse",
-        "pos": [16, 0, 16],
-        "color": "#f97316",
-        "blurb": "Greece, Rome, and the classical golden ages of India and China.",
-        "terms": [
-          { "term": "Greek city-states & democracy", "def": "Athens developed direct democracy (citizens only); Greek ideas in philosophy, art, and government shaped Western civilization." },
-          { "term": "Alexander & Hellenism", "def": "Alexander the Great's conquests spread Greek culture (Hellenism) by blending it with Persian and Egyptian traditions." },
-          { "term": "Roman Republic & Empire", "def": "Rome moved from republic to empire; gave the world roads, law (Twelve Tables), and the Pax Romana." },
-          { "term": "Golden Ages (Gupta & Han)", "def": "Gupta India advanced math (concept of zero) and medicine; Han China produced paper and ran a merit civil service." },
-          { "term": "Causes of collapse", "def": "Overexpansion, invasions, political corruption, and economic strain repeatedly brought down classical empires." }
-        ]
-      },
-      {
-        "id": "g9-silkroad",
-        "label": "Silk Road Caravanserai",
-        "unit": "Unit 5 · Exchange Networks — Trade, Technology, Travelers, Wealth",
-        "pos": [-16, 0, 16],
-        "color": "#fbbf24",
-        "blurb": "Where goods, ideas, faiths — and disease — crossed the world.",
-        "terms": [
-          { "term": "Silk Roads", "def": "Overland routes linking China to the Mediterranean; carried silk, ideas, religions (Buddhism), and disease (the Black Death)." },
-          { "term": "Indian Ocean trade", "def": "Monsoon winds powered seaborne trade linking East Africa, Arabia, India, and China; spread Islam and goods like spices." },
-          { "term": "Trans-Saharan trade", "def": "Camel caravans carried gold and salt across the Sahara; spread Islam to West African kingdoms." },
-          { "term": "Mali & Mansa Musa", "def": "The West African empire of Mali grew rich on gold; Mansa Musa's hajj displayed its wealth and put Mali on world maps." },
-          { "term": "Technologies of travel", "def": "The compass, astrolabe, lateen sail, and camel saddle made long-distance trade possible." }
-        ]
-      },
-      {
-        "id": "g9-postclassical",
-        "label": "Postclassical & Plague Port",
-        "unit": "Unit 6 · Postclassical Power — Faith, Conflict & Disease",
-        "pos": [-26, 0, 4],
-        "color": "#ea580c",
-        "blurb": "Empires, crusades, the Mongols, and the Black Death.",
-        "terms": [
-          { "term": "Byzantine Empire", "def": "The eastern Roman Empire centered on Constantinople; preserved Greco-Roman learning and Orthodox Christianity (Justinian's Code)." },
-          { "term": "Islamic Golden Age", "def": "Scholars in the Abbasid world advanced algebra, medicine, and preserved Greek texts; Baghdad was a center of learning." },
-          { "term": "Mongol Empire", "def": "The largest land empire ever; the Pax Mongolica made Silk Road trade safe and connected Eurasia." },
-          { "term": "Crusades", "def": "Religious wars between Christians and Muslims over the Holy Land; increased European trade and contact with the East." },
-          { "term": "Black Death", "def": "Plague spread along trade routes in the 1300s, killing roughly a third of Europe; labor shortages weakened feudalism." }
-        ]
-      }
+    "color": "#38bdf8",
+    "blurb": "Psychology is a science: it tests ideas with evidence.",
+    "terms": [
+     {
+      "term": "Operational definition",
+      "def": "A precise statement of how a variable is measured or manipulated (e.g., 'stress' = score on the Perceived Stress Scale)."
+     },
+     {
+      "term": "Experiment",
+      "def": "The only method that can show cause and effect, because it manipulates an independent variable and uses random assignment to control confounds."
+     },
+     {
+      "term": "Random assignment vs. random sampling",
+      "def": "Random assignment (to groups) supports causal claims; random sampling (from a population) supports generalization."
+     },
+     {
+      "term": "Correlation",
+      "def": "A measure of how two variables move together (-1 to +1). Correlation is NOT causation."
+     },
+     {
+      "term": "Descriptive statistics",
+      "def": "Mean, median, mode, range, and standard deviation summarize data; a positively skewed distribution has a tail to the right."
+     }
+    ]
+   },
+   {
+    "id": "ap-bio",
+    "label": "Biological Bases Brainstem",
+    "unit": "Unit 1 · Biological Bases of Behavior",
+    "pos": [
+     0,
+     0,
+     -24
     ],
-
-    "mcq": {
-      "station": "Stimulus MCQ Hall",
-      "blurb": "The Regents leads with stimulus-based MCQs — read the source, then answer. Pull a random set from the live bank.",
-      "bank": "global9",
-      "perRound": 10
-    },
-
-    "crq": {
-      "station": "Document Lab (CRQ)",
-      "blurb": "The Constructed-Response Question gives you 2 documents. Practice: describe the historical context, then explain a cause/effect or compare the documents.",
-      "items": [
-        {
-          "title": "CRQ · The Silk Roads",
-          "docs": [
-            { "label": "Document 1", "source": "Adapted from a historian on Eurasian trade", "text": "Along the Silk Roads moved far more than silk. Caravans carried paper and gunpowder west from China, and carried glass and horses east. Buddhist monks traveled the routes and built monasteries along the way, while merchants spread their languages and beliefs. The same roads that carried goods also carried the bacteria that caused the Black Death." },
-            { "label": "Document 2", "source": "Adapted account of Mongol-era trade safety", "text": "Under Mongol rule a single authority guarded the trade routes from China to Persia. Merchants reported that a traveler could cross the whole length of the road carrying gold without fear of robbery. With the routes safe, the volume of goods, ideas, and travelers moving across Eurasia rose sharply." }
-          ],
-          "questions": [
-            {
-              "q": "Question 1 — Identify and explain the historical context for these documents. (Describe the relevant historical circumstances surrounding the Silk Roads.)",
-              "rubric": "Full credit: states a relevant time/place and circumstance — overland routes linking China to the Mediterranean during the postclassical/Mongol era, when long-distance Eurasian trade was expanding.",
-              "model": "The historical context is the postclassical era (roughly 200 BCE–1450s CE) when the Silk Roads linked China across Central Asia to the Mediterranean. Especially under the Mongol Empire in the 1200s–1300s, a single authority secured the routes, so trade, ideas, and people moved across Eurasia in growing volume."
-            },
-            {
-              "q": "Question 2 — Based on these documents, identify and explain ONE effect the Silk Roads had on the connected societies. (Use evidence from BOTH documents.)",
-              "rubric": "Full credit: states an effect (cultural diffusion of ideas/religion/technology, OR the spread of disease, OR economic growth from safe trade) and supports it with specific evidence from both documents.",
-              "model": "One major effect was cultural diffusion. Document 1 shows that technologies like paper and gunpowder spread west while Buddhist monks carried their religion along the routes, mixing cultures across Eurasia. Document 2 explains that under Mongol protection the routes were so safe a merchant could carry gold without fear, which increased the volume of goods and ideas exchanged. Together the documents show the Silk Roads connected distant societies — but Document 1 notes the same roads also spread the Black Death, so connection brought both exchange and danger."
-            }
-          ]
-        }
-      ]
-    },
-
-    "ei": {
-      "station": "Enduring Issues Quest",
-      "intro": "An Enduring Issue is a problem or situation that has existed across many time periods and societies, that many groups have tried to address with varying success. Your Regents essay: identify an enduring issue from a set of documents, define it, and argue why it is significant — using evidence from at least 3 documents PLUS your own outside knowledge.",
-      "issues": [
-        { "name": "Conflict", "desc": "War, competition, resistance, invasions, power struggles, disputes over land, resources, or who holds power." },
-        { "name": "Power", "desc": "Who holds authority, how it is gained, used, kept, or limited (rulers, empires, law codes, religion as control)." },
-        { "name": "Inequality", "desc": "Differences in wealth, rights, or status between groups — social classes, caste, gender, enslaved vs. free." },
-        { "name": "Ideas & Beliefs", "desc": "The spread and clash of religions, philosophies, and political ideas, and how they shape societies." },
-        { "name": "Scarcity", "desc": "Limited resources — land, water, food, trade goods — and the competition or innovation they drive." },
-        { "name": "Technology", "desc": "Tools and techniques (writing, the compass, gunpowder, irrigation) that change how people live and connect." }
-      ],
-      "quest": {
-        "title": "Quest · Find the Enduring Issue across 3 documents",
-        "docs": [
-          { "label": "Document A", "source": "Hammurabi's Code (c. 1754 BCE), adapted", "text": "If a noble destroys the eye of another noble, his eye shall be destroyed. If he destroys the eye of a commoner, he shall pay one silver mina. If he destroys the eye of a man's slave, he shall pay one-half the slave's value." },
-          { "label": "Document B", "source": "Description of the caste system in ancient India, adapted", "text": "Society was divided into rigid groups from birth. Priests and warriors stood at the top; merchants and farmers below; laborers beneath them. People were expected to remain in the group they were born into for life, and the lowest were excluded from many temples and wells." },
-          { "label": "Document C", "source": "Account of enslaved labor in trade societies, adapted", "text": "Across many trade networks before the Atlantic system, enslaved people were bought and sold as property. They had few rights, were often captured in war or raids, and their labor enriched the merchants and rulers who controlled them." }
-        ],
-        "answer": {
-          "issue": "Inequality",
-          "why": "All three documents show societies dividing people into unequal groups with unequal rights. Hammurabi's Code (Doc A) punishes the same crime differently depending on whether the victim is a noble, a commoner, or an enslaved person — the law itself encodes inequality. The Indian caste system (Doc B) fixed people into ranked groups from birth, denying the lowest access to temples and wells. Doc C shows enslaved people treated as property with almost no rights. The issue of inequality is significant because the way a society distributes rights and status shapes whether people can improve their lives — and inequality of class, caste, and status has endured from these ancient societies all the way to debates about rights and discrimination today.",
-          "rubric": [
-            "Identifies a valid enduring issue (Inequality is strongest; Power is also defensible) based on a historically accurate reading.",
-            "Defines the issue and uses specific evidence from at least 3 documents (Hammurabi's tiered punishments; caste fixed from birth; enslaved people as property).",
-            "Argues significance by showing the issue affected people across these societies AND endured through to the present.",
-            "Includes outside knowledge beyond the documents (e.g., other examples of legal or social inequality across history)."
-          ]
-        }
+    "color": "#22d3ee",
+    "blurb": "Behavior has a biological substrate — neurons, hormones, and brain regions.",
+    "terms": [
+     {
+      "term": "Neuron & action potential",
+      "def": "A neuron fires all-or-none when input crosses threshold; the signal travels down the axon to the terminal buttons."
+     },
+     {
+      "term": "Neurotransmitters",
+      "def": "Chemical messengers crossing the synapse. Dopamine (reward/movement), serotonin (mood/sleep), acetylcholine (muscle action, memory), GABA (inhibitory)."
+     },
+     {
+      "term": "Limbic system",
+      "def": "Amygdala (emotion, especially fear), hippocampus (forming new memories), hypothalamus (drives, homeostasis)."
+     },
+     {
+      "term": "Cerebral cortex lobes",
+      "def": "Frontal (judgment, motor), parietal (touch), occipital (vision), temporal (hearing)."
+     },
+     {
+      "term": "Plasticity & split brain",
+      "def": "The brain rewires after damage; severing the corpus callosum reveals lateralized functions (language usually left-hemisphere)."
+     }
+    ]
+   },
+   {
+    "id": "ap-cognition",
+    "label": "Cognition Cortex",
+    "unit": "Unit 2 · Cognition",
+    "pos": [
+     22,
+     0,
+     -12
+    ],
+    "color": "#818cf8",
+    "blurb": "How we sense, perceive, remember, and think — and where it goes wrong.",
+    "terms": [
+     {
+      "term": "Sensation vs. perception",
+      "def": "Sensation is detecting raw stimuli; perception is organizing and interpreting it (top-down processing uses expectations)."
+     },
+     {
+      "term": "Three-stage memory model",
+      "def": "Sensory memory → working/short-term memory → long-term memory; encoding, storage, retrieval at each step."
+     },
+     {
+      "term": "Encoding strategies",
+      "def": "Chunking, mnemonics, the spacing effect, and deep (semantic) processing all strengthen later recall."
+     },
+     {
+      "term": "Memory errors",
+      "def": "Misinformation effect and source amnesia (Loftus) show memory is reconstructive, not a recording."
+     },
+     {
+      "term": "Heuristics & biases",
+      "def": "Mental shortcuts: availability and representativeness heuristics speed thinking but cause predictable errors; confirmation bias seeks confirming evidence."
+     }
+    ]
+   },
+   {
+    "id": "ap-dev",
+    "label": "Development & Learning Lobe",
+    "unit": "Unit 3 · Development & Learning",
+    "pos": [
+     14,
+     0,
+     16
+    ],
+    "color": "#34d399",
+    "blurb": "How people change over a lifespan and how experience shapes behavior.",
+    "terms": [
+     {
+      "term": "Piaget's stages",
+      "def": "Sensorimotor (object permanence), preoperational (egocentrism), concrete operational (conservation), formal operational (abstract reasoning)."
+     },
+     {
+      "term": "Attachment",
+      "def": "Harlow's monkeys showed contact comfort over food; Ainsworth's Strange Situation classified secure vs. insecure attachment."
+     },
+     {
+      "term": "Classical conditioning",
+      "def": "Pavlov: a neutral stimulus paired with a US becomes a CS that triggers a CR (acquisition, extinction, generalization)."
+     },
+     {
+      "term": "Operant conditioning",
+      "def": "Skinner: behavior is shaped by consequences. Reinforcement increases behavior; partial (variable-ratio) schedules resist extinction best."
+     },
+     {
+      "term": "Observational learning",
+      "def": "Bandura's Bobo doll: we learn by watching and imitating models (vicarious reinforcement)."
+     }
+    ]
+   },
+   {
+    "id": "ap-social",
+    "label": "Social & Personality Plateau",
+    "unit": "Unit 4 · Social Psychology & Personality",
+    "pos": [
+     -14,
+     0,
+     16
+    ],
+    "color": "#f87171",
+    "blurb": "How others shape us — and how we explain ourselves and each other.",
+    "terms": [
+     {
+      "term": "Fundamental attribution error",
+      "def": "We overweight personality and underweight the situation when explaining others' behavior."
+     },
+     {
+      "term": "Conformity & obedience",
+      "def": "Asch (line-judgment conformity) and Milgram (obedience to authority) show the power of social pressure."
+     },
+     {
+      "term": "Cognitive dissonance",
+      "def": "Festinger: holding conflicting attitudes creates tension we reduce by changing an attitude or behavior."
+     },
+     {
+      "term": "Big Five traits",
+      "def": "Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism (OCEAN) — the dominant trait model."
+     },
+     {
+      "term": "Humanistic view of self",
+      "def": "Rogers: people grow toward their potential given unconditional positive regard, empathy, and genuineness."
+     }
+    ]
+   },
+   {
+    "id": "ap-health",
+    "label": "Mental & Physical Health Hollow",
+    "unit": "Unit 5 · Mental & Physical Health",
+    "pos": [
+     -24,
+     0,
+     6
+    ],
+    "color": "#2dd4bf",
+    "blurb": "Stress, disorders, and the evidence-based treatments that help. (Support: 988 / Crisis Text Line 741741)",
+    "terms": [
+     {
+      "term": "Diagnosing disorders",
+      "def": "The DSM-5-TR classifies disorders by clinically significant distress or impairment; clinicians weigh dysfunction, distress, deviance, danger."
+     },
+     {
+      "term": "Anxiety & mood disorders",
+      "def": "Generalized anxiety, panic, and phobias involve excessive fear; major depressive and bipolar disorders involve mood dysregulation."
+     },
+     {
+      "term": "Biomedical therapies",
+      "def": "SSRIs raise serotonin availability for depression/anxiety; antipsychotics block dopamine but risk tardive dyskinesia."
+     },
+     {
+      "term": "Psychotherapies",
+      "def": "CBT challenges maladaptive thoughts and behaviors; exposure therapy treats anxiety; person-centered therapy uses unconditional positive regard."
+     },
+     {
+      "term": "Stress & health",
+      "def": "Chronic stress activates the HPA axis and harms health; the biopsychosocial model treats well-being as biological + psychological + social."
+     }
+    ]
+   }
+  ],
+  "mcq": {
+   "station": "MCQ Portal",
+   "blurb": "75 MCQs in 90 minutes on the real exam (~72 sec each). Pull a random set from the live bank.",
+   "bank": "appsych",
+   "perRound": 10
+  },
+  "frq": {
+   "station": "Free-Response Lab",
+   "blurb": "Section II is one-third of your score: an AAQ (Article Analysis, 7 pts, ~25 min) and an EBQ (Evidence-Based, 7 pts, ~45 min). Read → think → reveal model + rubric.",
+   "items": [
+    {
+     "type": "AAQ",
+     "title": "AAQ · Sleep & Memory Consolidation",
+     "stimulus": "Researchers randomly assigned 60 college students to either sleep 8 hours or stay awake the night after learning a list of 40 word pairs. The next morning all students were tested on recall. The sleep group recalled a mean of 31 pairs (SD = 4); the sleep-deprived group recalled a mean of 22 pairs (SD = 5). The difference was statistically significant (p < .01).",
+     "prompt": "Respond to the following. Use the study above.\nA. Identify the research method used.\nB. State the operational definition of memory in this study.\nC. Identify the dependent variable.\nD. Explain one way the researchers could increase generalizability.\nE. Identify one ethical guideline the researchers should follow.\nF. Explain whether the data support OR refute the claim that sleep aids memory consolidation. Use specific data.",
+     "rubric": [
+      {
+       "part": "A (1 pt)",
+       "criterion": "Names experiment / experimental method (random assignment to conditions)."
+      },
+      {
+       "part": "B (1 pt)",
+       "criterion": "Memory operationalized as the number of word pairs correctly recalled."
+      },
+      {
+       "part": "C (1 pt)",
+       "criterion": "Dependent variable = recall score (word pairs recalled the next morning)."
+      },
+      {
+       "part": "D (1 pt)",
+       "criterion": "A valid generalizability fix, e.g., use a random sample from a broader population than one college, or replicate with varied ages."
+      },
+      {
+       "part": "E (1 pt)",
+       "criterion": "A real ethical guideline: informed consent, right to withdraw, debriefing, or protection from harm (sleep deprivation)."
+      },
+      {
+       "part": "F (2 pts)",
+       "criterion": "Takes a position (data SUPPORT the claim) AND cites specific data (31 vs. 22 pairs; significant at p < .01) with reasoning that more sleep → better consolidation."
       }
+     ],
+     "model": "A. Experiment — students were randomly assigned to a sleep or sleep-deprived condition.\nB. Memory was operationalized as the number of the 40 word pairs a student correctly recalled.\nC. The dependent variable is the recall score the next morning.\nD. Generalizability would improve by drawing a random sample from a wider population (not just one college) and replicating across ages, so the finding isn't limited to young adults.\nE. The researchers must obtain informed consent and allow participants to withdraw, since sleep deprivation could cause discomfort; debriefing afterward is also required.\nF. The data SUPPORT the claim. The sleep group recalled a mean of 31 pairs versus 22 for the sleep-deprived group, a gap that was statistically significant (p < .01). Because the only systematic difference between groups was sleep, the higher recall is reasonably attributed to sleep aiding memory consolidation."
+    },
+    {
+     "type": "EBQ",
+     "title": "EBQ · Does spacing study sessions improve learning?",
+     "stimulus": "SOURCE 1 (Cepeda et al.): Across 250+ experiments, material reviewed in spaced sessions was retained far better on delayed tests than the same material crammed in one massed session; the advantage grew as the final test was delayed.\n\nSOURCE 2 (student survey): In a survey of 400 high-schoolers, 78% reported studying for tests in a single session the night before. Those who self-reported spacing their study over several days had higher mean exam scores (88 vs. 79).\n\nSOURCE 3 (classroom experiment): One class practiced vocabulary in three short spaced sessions; a matched class practiced the same total minutes in one block. Two weeks later the spaced class scored 18% higher on a surprise quiz.",
+     "prompt": "Using the sources, develop an argument about whether spacing study sessions improves long-term learning.\nA. Propose a defensible claim.\nB. Support your claim with specific evidence from one source AND explain how a psychological concept connects it to the claim.\nC. Support your claim with specific evidence from a DIFFERENT source AND explain how a psychological concept connects it to the claim.",
+     "rubric": [
+      {
+       "part": "A · Claim (1 pt)",
+       "criterion": "A defensible claim, e.g., 'Spacing study sessions improves long-term retention.'"
+      },
+      {
+       "part": "B · Evidence (1 pt)",
+       "criterion": "Cites specific evidence from one source (e.g., Source 3's 18% higher quiz score two weeks later)."
+      },
+      {
+       "part": "B · Application (2 pts)",
+       "criterion": "Connects that evidence to the claim using a course concept — the spacing effect / distributed practice strengthening consolidation and retrieval."
+      },
+      {
+       "part": "C · Evidence (1 pt)",
+       "criterion": "Cites specific evidence from a DIFFERENT source (e.g., Source 1's 250+ experiments, advantage grows with delay)."
+      },
+      {
+       "part": "C · Application (2 pts)",
+       "criterion": "Connects it with a course concept — e.g., the testing/retrieval and forgetting curve, distributed practice slows forgetting."
+      }
+     ],
+     "model": "A. Claim: Spacing study sessions across several days improves long-term learning more than cramming.\nB. Source 3 shows a class that practiced the same total minutes in three spaced sessions scored 18% higher on a surprise quiz two weeks later. This reflects the spacing effect (distributed practice): repeated, spaced retrieval strengthens consolidation, so the memory is more durable than after one massed block.\nC. Source 1 reports that across 250+ experiments, spaced review beat massed review on delayed tests, and the advantage grew as the delay increased. This fits the forgetting curve — massed study fades quickly, while distributed practice repeatedly re-strengthens the trace, slowing forgetting over time. (Source 2's correlation is consistent but cannot establish cause by itself.)"
     }
+   ]
   }
+ },
+ "global9": {
+  "title": "The Trade Winds World",
+  "subtitle": "Sail the river valleys and the Silk Road — master every Regents skill.",
+  "theme": "trade",
+  "nodes": [
+   {
+    "id": "g9-origins",
+    "label": "Human Origins Outpost",
+    "unit": "Unit 1 · Human Origins & the Neolithic Revolution",
+    "pos": [
+     -26,
+     0,
+     -8
+    ],
+    "color": "#f59e0b",
+    "blurb": "From hunter-gatherers to farmers — the change that made civilization possible.",
+    "terms": [
+     {
+      "term": "Paleolithic Era",
+      "def": "The 'Old Stone Age': humans lived in small nomadic bands as hunter-gatherers, using chipped-stone tools (cave art at Lascaux)."
+     },
+     {
+      "term": "Neolithic Revolution",
+      "def": "Around 10,000 BCE humans began farming and domesticating animals, leading to permanent settlements, surplus food, and population growth."
+     },
+     {
+      "term": "Domestication",
+      "def": "Taming plants and animals for human use; a food surplus freed some people from farming and enabled specialized jobs."
+     },
+     {
+      "term": "Civilization",
+      "def": "Surplus → cities, specialized labor, social classes, organized government, religion, and writing."
+     }
+    ]
+   },
+   {
+    "id": "g9-rivers",
+    "label": "River Valley Delta",
+    "unit": "Unit 2 · River Worlds — Cities, Law, Writing, State Power",
+    "pos": [
+     0,
+     0,
+     -26
+    ],
+    "color": "#fbbf24",
+    "blurb": "Four river valleys, four cradles of civilization.",
+    "terms": [
+     {
+      "term": "Mesopotamia (Tigris & Euphrates)",
+      "def": "The 'land between the rivers' in the Fertile Crescent; Sumer built the first city-states with irrigation."
+     },
+     {
+      "term": "Cuneiform & Hammurabi's Code",
+      "def": "Sumerians invented cuneiform (wedge writing); Hammurabi's Code was one of the first written law codes ('an eye for an eye'), revealing social class."
+     },
+     {
+      "term": "Egypt — Gift of the Nile",
+      "def": "Predictable Nile floods enabled farming; pharaohs ruled as god-kings; hieroglyphs were decoded via the Rosetta Stone."
+     },
+     {
+      "term": "Indus Valley",
+      "def": "Harappa and Mohenjo-Daro had advanced grid-planned cities and plumbing; their writing is still undeciphered."
+     },
+     {
+      "term": "Shang China (Yellow River)",
+      "def": "Ruled the Huang He valley; oracle bones are China's earliest writing and were used for divination."
+     }
+    ]
+   },
+   {
+    "id": "g9-belief",
+    "label": "Belief Systems Bazaar",
+    "unit": "Unit 3 · Belief Systems & Social Order",
+    "pos": [
+     24,
+     0,
+     -14
+    ],
+    "color": "#fb923c",
+    "blurb": "The major belief systems that ordered ancient societies.",
+    "terms": [
+     {
+      "term": "Hinduism",
+      "def": "Polytheistic and rooted in the Vedas; teaches dharma, karma, reincarnation, and a caste social structure in South Asia."
+     },
+     {
+      "term": "Buddhism",
+      "def": "Founded by Siddhartha Gautama; the Four Noble Truths and Eightfold Path lead to the end of suffering; spread along trade routes."
+     },
+     {
+      "term": "Judaism & Christianity",
+      "def": "Monotheistic faiths; Judaism's Torah and covenant; Christianity grew from Judaism and spread through the Roman Empire."
+     },
+     {
+      "term": "Islam",
+      "def": "Monotheistic faith founded by Muhammad (7th c.); the Five Pillars and the Qur'an; spread rapidly through conquest and trade."
+     },
+     {
+      "term": "Confucianism & Daoism",
+      "def": "Chinese philosophies: Confucianism stresses filial piety, hierarchy, and good government; Daoism stresses harmony with nature (the Dao)."
+     }
+    ]
+   },
+   {
+    "id": "g9-classical",
+    "label": "Classical Empires Citadel",
+    "unit": "Unit 4 · Classical Power — Citizenship, Empire, Golden Ages, Collapse",
+    "pos": [
+     16,
+     0,
+     16
+    ],
+    "color": "#f97316",
+    "blurb": "Greece, Rome, and the classical golden ages of India and China.",
+    "terms": [
+     {
+      "term": "Greek city-states & democracy",
+      "def": "Athens developed direct democracy (citizens only); Greek ideas in philosophy, art, and government shaped Western civilization."
+     },
+     {
+      "term": "Alexander & Hellenism",
+      "def": "Alexander the Great's conquests spread Greek culture (Hellenism) by blending it with Persian and Egyptian traditions."
+     },
+     {
+      "term": "Roman Republic & Empire",
+      "def": "Rome moved from republic to empire; gave the world roads, law (Twelve Tables), and the Pax Romana."
+     },
+     {
+      "term": "Golden Ages (Gupta & Han)",
+      "def": "Gupta India advanced math (concept of zero) and medicine; Han China produced paper and ran a merit civil service."
+     },
+     {
+      "term": "Causes of collapse",
+      "def": "Overexpansion, invasions, political corruption, and economic strain repeatedly brought down classical empires."
+     }
+    ]
+   },
+   {
+    "id": "g9-silkroad",
+    "label": "Silk Road Caravanserai",
+    "unit": "Unit 5 · Exchange Networks — Trade, Technology, Travelers, Wealth",
+    "pos": [
+     -16,
+     0,
+     16
+    ],
+    "color": "#fbbf24",
+    "blurb": "Where goods, ideas, faiths — and disease — crossed the world.",
+    "terms": [
+     {
+      "term": "Silk Roads",
+      "def": "Overland routes linking China to the Mediterranean; carried silk, ideas, religions (Buddhism), and disease (the Black Death)."
+     },
+     {
+      "term": "Indian Ocean trade",
+      "def": "Monsoon winds powered seaborne trade linking East Africa, Arabia, India, and China; spread Islam and goods like spices."
+     },
+     {
+      "term": "Trans-Saharan trade",
+      "def": "Camel caravans carried gold and salt across the Sahara; spread Islam to West African kingdoms."
+     },
+     {
+      "term": "Mali & Mansa Musa",
+      "def": "The West African empire of Mali grew rich on gold; Mansa Musa's hajj displayed its wealth and put Mali on world maps."
+     },
+     {
+      "term": "Technologies of travel",
+      "def": "The compass, astrolabe, lateen sail, and camel saddle made long-distance trade possible."
+     }
+    ]
+   },
+   {
+    "id": "g9-postclassical",
+    "label": "Postclassical & Plague Port",
+    "unit": "Unit 6 · Postclassical Power — Faith, Conflict & Disease",
+    "pos": [
+     -26,
+     0,
+     4
+    ],
+    "color": "#ea580c",
+    "blurb": "Empires, crusades, the Mongols, and the Black Death.",
+    "terms": [
+     {
+      "term": "Byzantine Empire",
+      "def": "The eastern Roman Empire centered on Constantinople; preserved Greco-Roman learning and Orthodox Christianity (Justinian's Code)."
+     },
+     {
+      "term": "Islamic Golden Age",
+      "def": "Scholars in the Abbasid world advanced algebra, medicine, and preserved Greek texts; Baghdad was a center of learning."
+     },
+     {
+      "term": "Mongol Empire",
+      "def": "The largest land empire ever; the Pax Mongolica made Silk Road trade safe and connected Eurasia."
+     },
+     {
+      "term": "Crusades",
+      "def": "Religious wars between Christians and Muslims over the Holy Land; increased European trade and contact with the East."
+     },
+     {
+      "term": "Black Death",
+      "def": "Plague spread along trade routes in the 1300s, killing roughly a third of Europe; labor shortages weakened feudalism."
+     }
+    ]
+   },
+   {
+    "id": "g9-renaissance",
+    "label": "Renaissance Hill Town",
+    "unit": "Unit 7 · Renaissance, Reformation & New Ideas",
+    "color": "#f43f5e",
+    "blurb": "Inside these walls, Europe rethinks itself. Trade wealth from cities like Florence pays for a rebirth of classical learning, a printing press spreads ideas faster than any ruler can stop them, and challenges to the Church split Western Christianity — while kings answer the chaos by claiming absolute power.",
+    "terms": [
+     {
+      "term": "Renaissance humanism",
+      "def": "A 'rebirth' of interest in Greek and Roman learning beginning in the Italian city-states (c. 1400s), funded by trade wealth and patrons like the Medici. Humanists emphasized human potential and achievement in this world — art, secular education, and individual accomplishment — rather than focusing only on the afterlife."
+     },
+     {
+      "term": "Printing press (Gutenberg, c. 1450)",
+      "def": "Movable-type printing made books faster and cheaper to produce, so literacy, Renaissance ideas, and Reformation arguments spread far beyond what hand-copying allowed. On the Regents, the press is the classic example of technology accelerating cultural and religious change."
+     },
+     {
+      "term": "Protestant Reformation (95 Theses, 1517)",
+      "def": "Martin Luther's public challenge to Church practices — especially the sale of indulgences — that split Western Christianity into Catholic and Protestant branches. Luther argued faith alone brings salvation and that the Bible, not the pope, is the final authority."
+     },
+     {
+      "term": "Counter-Reformation & Council of Trent",
+      "def": "The Catholic Church's response: the Council of Trent (1545-1563) reaffirmed core doctrine, ended the worst abuses, and energized new orders like the Jesuits to win believers back through education and missionary work. Religious division still fueled wars across Europe for a century."
+     },
+     {
+      "term": "Absolutism & divine right",
+      "def": "The claim that a monarch holds total power granted by God, answerable to no parliament or noble class. Louis XIV of France ('the Sun King', 'L'etat, c'est moi') is the model absolutist — centralizing power at Versailles and taming the nobility."
+     },
+     {
+      "term": "Scientific Revolution",
+      "def": "A shift toward explaining nature through observation, mathematics, and experiment. Copernicus and Galileo defended the heliocentric (sun-centered) model against Church opposition; Newton described universal laws of motion. Its method — question received authority, test claims — later powered the Enlightenment."
+     }
+    ]
+   },
+   {
+    "id": "g9-encounters",
+    "label": "Harbor of Encounters",
+    "unit": "Unit 8 · The First Global Age — Empires, Voyages & Exchange",
+    "color": "#22d3ee",
+    "blurb": "From this harbor the whole 1400s-1500s world comes into view: Ottoman cannons take Constantinople, Ming treasure fleets sail and then stop, African and American empires flourish on their own terms — and then European caravels stitch the hemispheres together, for better and for much worse.",
+    "terms": [
+     {
+      "term": "Ottoman Empire & the fall of Constantinople (1453)",
+      "def": "Using massive cannons, Mehmed II took Constantinople, ending the Byzantine Empire and placing the Ottomans astride Europe-Asia trade. Ottoman rule mixed strengths the Regents loves to test: devshirme-recruited Janissaries, millets that let religious communities govern themselves, and Suleiman's law codes."
+     },
+     {
+      "term": "Zheng He's voyages & the tribute system",
+      "def": "Between 1405-1433, Ming China sent enormous treasure fleets across the Indian Ocean to display power and collect tribute — decades before Columbus, with far larger ships. China later turned inward and restricted overseas voyaging, a favorite Regents contrast with tiny Portugal's expansion."
+     },
+     {
+      "term": "African states: Songhai, Great Zimbabwe & the Swahili coast",
+      "def": "Africa entered the global age with powerful states of its own: Songhai controlling trans-Saharan gold-salt trade from Timbuktu, stone-built Great Zimbabwe taxing gold routes to the coast, and Swahili city-states like Kilwa trading with Arabia, India, and China."
+     },
+     {
+      "term": "Aztec & Inca empires",
+      "def": "Two American empires built without Old World contact: the Aztecs engineered chinampa 'floating gardens' at Tenochtitlan and ruled through tribute; the Inca knit mountain territory together with 14,000+ miles of roads, terrace farming, and quipu record-keeping — no wheel, no iron, no writing system in the European sense."
+     },
+     {
+      "term": "Navigation technology: caravel, compass, astrolabe",
+      "def": "Borrowed and improved tools made ocean exploration possible: the magnetic compass (China) for direction, the astrolabe (Greek/Islamic) for latitude, and the caravel with lateen sails for sailing against the wind. Technology adopted across cultures is a classic enduring-issues example."
+     },
+     {
+      "term": "Columbian Exchange",
+      "def": "The transfer of plants, animals, people, and diseases between hemispheres after 1492. American crops (potatoes, maize) boosted populations in Europe, Africa, and Asia; Old World horses and cattle transformed the Americas — while smallpox and other diseases killed up to 90% of Native Americans, the deadliest demographic disaster in history."
+     },
+     {
+      "term": "Encomienda & the Atlantic slave trade",
+      "def": "Spain's encomienda system forced Native labor on colonial plantations and mines; as Native populations collapsed, Europeans turned to the Middle Passage, transporting millions of enslaved Africans to the Americas. Together they built colonial wealth on coerced labor — the Regents tests this as both Power and Inequality."
+     }
+    ]
+   }
+  ],
+  "mcq": {
+   "station": "Stimulus MCQ Hall",
+   "blurb": "The Regents leads with stimulus-based MCQs — read the source, then answer. Pull a random set from the live bank.",
+   "bank": "global9",
+   "perRound": 10
+  },
+  "crq": {
+   "station": "Document Lab (CRQ)",
+   "blurb": "The Constructed-Response Question gives you 2 documents. Practice: describe the historical context, then explain a cause/effect or compare the documents.",
+   "items": [
+    {
+     "title": "CRQ · The Silk Roads",
+     "docs": [
+      {
+       "label": "Document 1",
+       "source": "Adapted from a historian on Eurasian trade",
+       "text": "Along the Silk Roads moved far more than silk. Caravans carried paper and gunpowder west from China, and carried glass and horses east. Buddhist monks traveled the routes and built monasteries along the way, while merchants spread their languages and beliefs. The same roads that carried goods also carried the bacteria that caused the Black Death."
+      },
+      {
+       "label": "Document 2",
+       "source": "Adapted account of Mongol-era trade safety",
+       "text": "Under Mongol rule a single authority guarded the trade routes from China to Persia. Merchants reported that a traveler could cross the whole length of the road carrying gold without fear of robbery. With the routes safe, the volume of goods, ideas, and travelers moving across Eurasia rose sharply."
+      }
+     ],
+     "questions": [
+      {
+       "q": "Question 1 — Identify and explain the historical context for these documents. (Describe the relevant historical circumstances surrounding the Silk Roads.)",
+       "rubric": "Full credit: states a relevant time/place and circumstance — overland routes linking China to the Mediterranean during the postclassical/Mongol era, when long-distance Eurasian trade was expanding.",
+       "model": "The historical context is the postclassical era (roughly 200 BCE–1450s CE) when the Silk Roads linked China across Central Asia to the Mediterranean. Especially under the Mongol Empire in the 1200s–1300s, a single authority secured the routes, so trade, ideas, and people moved across Eurasia in growing volume."
+      },
+      {
+       "q": "Question 2 — Based on these documents, identify and explain ONE effect the Silk Roads had on the connected societies. (Use evidence from BOTH documents.)",
+       "rubric": "Full credit: states an effect (cultural diffusion of ideas/religion/technology, OR the spread of disease, OR economic growth from safe trade) and supports it with specific evidence from both documents.",
+       "model": "One major effect was cultural diffusion. Document 1 shows that technologies like paper and gunpowder spread west while Buddhist monks carried their religion along the routes, mixing cultures across Eurasia. Document 2 explains that under Mongol protection the routes were so safe a merchant could carry gold without fear, which increased the volume of goods and ideas exchanged. Together the documents show the Silk Roads connected distant societies — but Document 1 notes the same roads also spread the Black Death, so connection brought both exchange and danger."
+      }
+     ]
+    }
+   ]
+  },
+  "ei": {
+   "station": "Enduring Issues Quest",
+   "intro": "An Enduring Issue is a problem or situation that has existed across many time periods and societies, that many groups have tried to address with varying success. Your Regents essay: identify an enduring issue from a set of documents, define it, and argue why it is significant — using evidence from at least 3 documents PLUS your own outside knowledge.",
+   "issues": [
+    {
+     "name": "Conflict",
+     "desc": "War, competition, resistance, invasions, power struggles, disputes over land, resources, or who holds power."
+    },
+    {
+     "name": "Power",
+     "desc": "Who holds authority, how it is gained, used, kept, or limited (rulers, empires, law codes, religion as control)."
+    },
+    {
+     "name": "Inequality",
+     "desc": "Differences in wealth, rights, or status between groups — social classes, caste, gender, enslaved vs. free."
+    },
+    {
+     "name": "Ideas & Beliefs",
+     "desc": "The spread and clash of religions, philosophies, and political ideas, and how they shape societies."
+    },
+    {
+     "name": "Scarcity",
+     "desc": "Limited resources — land, water, food, trade goods — and the competition or innovation they drive."
+    },
+    {
+     "name": "Technology",
+     "desc": "Tools and techniques (writing, the compass, gunpowder, irrigation) that change how people live and connect."
+    }
+   ],
+   "quest": {
+    "title": "Quest · Find the Enduring Issue across 3 documents",
+    "docs": [
+     {
+      "label": "Document A",
+      "source": "Hammurabi's Code (c. 1754 BCE), adapted",
+      "text": "If a noble destroys the eye of another noble, his eye shall be destroyed. If he destroys the eye of a commoner, he shall pay one silver mina. If he destroys the eye of a man's slave, he shall pay one-half the slave's value."
+     },
+     {
+      "label": "Document B",
+      "source": "Description of the caste system in ancient India, adapted",
+      "text": "Society was divided into rigid groups from birth. Priests and warriors stood at the top; merchants and farmers below; laborers beneath them. People were expected to remain in the group they were born into for life, and the lowest were excluded from many temples and wells."
+     },
+     {
+      "label": "Document C",
+      "source": "Account of enslaved labor in trade societies, adapted",
+      "text": "Across many trade networks before the Atlantic system, enslaved people were bought and sold as property. They had few rights, were often captured in war or raids, and their labor enriched the merchants and rulers who controlled them."
+     }
+    ],
+    "answer": {
+     "issue": "Inequality",
+     "why": "All three documents show societies dividing people into unequal groups with unequal rights. Hammurabi's Code (Doc A) punishes the same crime differently depending on whether the victim is a noble, a commoner, or an enslaved person — the law itself encodes inequality. The Indian caste system (Doc B) fixed people into ranked groups from birth, denying the lowest access to temples and wells. Doc C shows enslaved people treated as property with almost no rights. The issue of inequality is significant because the way a society distributes rights and status shapes whether people can improve their lives — and inequality of class, caste, and status has endured from these ancient societies all the way to debates about rights and discrimination today.",
+     "rubric": [
+      "Identifies a valid enduring issue (Inequality is strongest; Power is also defensible) based on a historically accurate reading.",
+      "Defines the issue and uses specific evidence from at least 3 documents (Hammurabi's tiered punishments; caste fixed from birth; enslaved people as property).",
+      "Argues significance by showing the issue affected people across these societies AND endured through to the present.",
+      "Includes outside knowledge beyond the documents (e.g., other examples of legal or social inequality across history)."
+     ]
+    }
+   }
+  }
+ }
 }

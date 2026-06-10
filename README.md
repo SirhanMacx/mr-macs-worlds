@@ -1,152 +1,176 @@
-# Mr. Mac's Worlds 🌐🧠🐫
+# Mr. Mac's Worlds
 
-A **3D, explorable learning experience** for a veteran New York teacher's students.
-Walk through themed worlds, approach landmarks to learn real in-scope content, and
-step into **skill stations** that drill the actual exam tasks — built so students
-*want* to explore while they master the material.
+A **seeded, procedurally generated, open-world 3D learning environment**.
+Students free-roam two living continents, walk up to landmark **learning
+stations**, and master real exam skills — AP Psychology (2024 CED) and the NYS
+Global History & Geography 9 path.
 
-**Live site:** see the repository's GitHub Pages URL (Settings → Pages).
-
-Built with **three.js via CDN + importmap, vanilla JS, fully static** — no build
-step, no bundler. Designed to run on **school Chromebooks and phones**.
+Built with **three.js via CDN importmap, vanilla ES modules, fully static** —
+no build step, no bundler. Designed to run at 60 fps on **school Chromebooks**
+and phones.
 
 ---
 
-## What v1 includes
+## v2 — what it is
 
-### A 3D Hub
-A stylized observatory-style hub with a glowing monument and **portals** to each
-world. Two portals are live; three more (AP World History, Global 10, US History 11)
-are visible "coming soon" stubs so the experience reads as a growing campus.
+### Two open worlds, one engine
 
-### World 1 — AP Psychology: *The Mind Atlas* 🧠
-An explorable brain-scape (translucent low-poly brain, drifting "neuron" particles).
-- **6 content nodes**, one per 2024-CED unit: Research Methods, Biological Bases,
-  Cognition, Development & Learning, Social Psychology & Personality, Mental &
-  Physical Health. Each node teaches 5 key concepts in a clean panel.
-- **MCQ Portal** — pulls real questions from the AP Psychology bank, shuffles the
-  answer choices, grades each item, and shows the explanation.
-- **Free-Response Lab** — authentic **AAQ** (Article Analysis, 7-pt, Parts A–F) and
-  **EBQ** (Evidence-Based, 7-pt: Claim + two sourced body parts) practice. Read the
-  source(s) → plan privately → reveal the **scoring rubric** and a **model answer**.
+| World | Course | Seed |
+|---|---|---|
+| **The Trade Winds World** | Global History 9 | `20270623` (the Global Regents date) |
+| **The Mind Atlas** | AP Psychology | `20270511` (the projected AP exam date) |
 
-### World 2 — Global History 9: *The Trade Winds World* 🐫
-A warm Silk Road / river-valley map (stepped ziggurat, sun disc, dunes, a flowing
-trade-route ribbon).
-- **6 content nodes**: Human Origins & the Neolithic Revolution, River Worlds
-  (Mesopotamia/Egypt/Indus/Shang), Belief Systems, Classical Empires, Exchange
-  Networks (Silk Road / Indian Ocean / Trans-Saharan), and Postclassical Power
-  (Byzantium, Islamic Golden Age, Mongols, Black Death).
-- **Stimulus MCQ Hall** — real Regents-style questions from the Global 9 bank.
-- **Document Lab (CRQ)** — a 2-document Constructed-Response set: describe historical
-  context, then explain cause/effect, with model answers + what-earns-credit notes.
-- **Enduring Issues Quest** — the culminating Regents skill. Read 3 documents,
-  identify the shared **enduring issue** from the real NYS list (Conflict, Power,
-  Inequality, Ideas & Beliefs, Scarcity, Technology), then see a model argument and
-  the full-essay rubric.
+Every world is generated **deterministically from its fixed seed**
+(mulberry32 PRNG + seeded value-noise / fBm / ridged multifractal). Same seed,
+same mountains, same roads, same landmark positions — for every student, every
+visit, on every device. The hub's map thumbnails are painted at runtime from
+the *same* height/biome fields as the 3D terrain, as proof.
 
-### Controls (desktop + Chromebook + touch)
-- **Desktop:** `WASD` / arrow keys to move, **drag the mouse** to look (no pointer-lock
-  required — works on locked-down school machines).
-- **Touch / Chromebook touchscreen:** on-screen **joystick** (bottom-left) to move,
-  **swipe the right half** to look.
-- **Tap-to-walk:** tap a distant crystal or gate and you walk toward it; tap again on
-  arrival to open it.
+### The land
+- **Heightmap terrain** built from layered noise: continent mask, ridged
+  mountain ranges, domain-warped hills, biome-blended dunes / steppe / delta /
+  terraces, rivers carved below sea level, roads raised into causeways, and
+  flattened building pads under every station.
+- **Per-vertex biome coloring** (grass, savanna, two-tone dunes, wetland,
+  beach sand, rock-by-slope, snow/crystal by altitude, painted road ribbons)
+  on a single shared `MeshStandardMaterial`.
+- **Animated water** — one plane, one cheap shader: shoreline tinting and foam
+  from pre-sampled terrain depth, two-wave vertex bob, scrolling sparkle.
+- **Sky dome shader** (zenith/horizon gradient + sun disc), drifting instanced
+  clouds, hemisphere + directional light, and matched exponential fog with a
+  slow noon-to-golden-hour drift.
+- **Instanced flora** — hundreds to ~2,000 trees / palms / cypress / glowing
+  dream-trees / rocks / crystals / reeds / grass tufts, placed by seeded
+  rejection-sampling against the biome field (one draw call per archetype).
 
-### Fun + progress
-XP for learning nodes and completing stations, a collectible "mastered" count in the
-HUD, toasts for milestones, and live-rotating crystals/portals.
+### The explorer
+- Third-person procedural avatar (walk cycle, hop, soft blob shadow) with a
+  smoothed chase camera.
+- **Terrain collision is analytic** — the player samples the exact `height(x, z)`
+  function the mesh was built from. No raycasts, no physics engine, no cost.
+- **Desktop:** WASD/arrows + drag-look or click-to-pointer-lock, Shift to run,
+  Space to hop, wheel to zoom. **Touch:** virtual joystick (push far to run) +
+  drag-look.
 
-### Accessibility & performance
-- Capped pixel ratio (≤1.5), low-poly geometry, instanced décor, modest draw calls,
-  per-world lazy build/teardown.
-- **Reduced-motion** toggle (`RM` in the HUD) — also auto-detected from the OS — that
-  thins particle counts and stops idle animation.
-- High-contrast readable text panels. **Audio is off by default** (none ships in v1).
-- **Graceful WebGL fallback** screen if the device/browser can't do WebGL.
+### The learning layer (the point)
+- **8 region stations** in Trade Winds (Origins Foothills, River Delta, Belief
+  Crossroads, Classical Coast, Oasis Caravanserai, Steppe Citadel, Renaissance
+  Hill Town, Harbor of Encounters) and **6** in Mind Atlas (Observatory
+  Heights, Neural Forest, Memory Archipelago, Growth Grove, Social Plaza,
+  Wellness Springs) — each with a **distinct procedural silhouette** (ziggurat,
+  colonnaded temple, caravanserai, walled hill town with campanile, harbor
+  with caravel, giant neuron, retrieval lighthouse...).
+- Walk up → prompt → **E / tap** opens the station overlay **in place**:
+  - **Learn** tab — the unit's key ideas and terms (+XP for studying).
+  - **Practice** tab — 10 MCQs drawn **only from that unit's topics** in the
+    real question banks. Score **70%+ after studying to clear the station** —
+    it lights up gold across the world, the minimap, and the quest log.
+- **Skill stations** drill the written exam: **Free-Response Lab** (real AAQ +
+  EBQ tasks with rubrics and model answers), **Document Lab** (NYS CRQ set),
+  **Hall of Enduring Issues** (the culminating Regents essay skill), and mixed
+  MCQ halls.
+- **HUD**: live compass strip with station markers, procedural minimap painted
+  from the height field, light-pillar **beacon** to the suggested next station,
+  quest log with per-unit mastery (tap any row to re-aim the beacon), XP, and
+  persistent progress in `localStorage`.
+
+### Performance posture (Chromebook-first)
+- Pixel ratio clamped (≤1.5 desktop, 1 on touch); auto-degrades to 1 if the
+  first seconds run slow.
+- **< 100 draw calls**: chunked terrain under one material, one InstancedMesh
+  per flora archetype, stations baked to one solid + one glow mesh each,
+  distance-faded label sprites.
+- Exp2 fog + tight far plane do the distance culling; **no postprocessing**;
+  shadows are an opt-in **HQ** toggle.
+- Reduced-motion support (OS-detected), WebAudio chimes (muted by default),
+  graceful WebGL-fallback page.
 
 ---
 
 ## Content provenance & scope
 
-All practice content is **real and vetted** — nothing was invented:
+All practice content is **real and vetted** — nothing invented:
 
-- **Question banks** were copied (unmodified content) from Mr. Mac's Review Arcade's
-  shared bank into `data/global9-bank.json` (**275 items, 55 topics**) and
-  `data/appsych-bank.json` (**175 items, 35 topics**). Each item keeps its prompt,
-  four choices, correct answer, topic, and a teaching explanation.
-- **AP Psychology is 2024-CED-clean.** The build script (`scripts/build-banks.py`)
-  runs a hard gate that **fails** if any excluded content appears as testable:
-  Maslow's hierarchy of needs, Kohlberg's stages, Gardner's multiple-intelligences
-  taxonomy, Freud's psychosexual stages, or the three named theories of emotion
-  (James-Lange / Cannon-Bard / Schachter-Singer). Humanistic psychology (Rogers,
-  person-centered therapy) is correctly **kept**, as the CED intends.
-- **Global History uses the real NYS framework:** stimulus MCQs, the CRQ task
-  structure, and the official Enduring Issues framing used in the New York Global
-  History & Geography II Regents.
-- Concept nodes and the writing-task specs were drawn from the teacher's own
-  curricula (an AP Psychology synthesis course and a Global 9 Regents course).
+- `data/global9-bank.json` — **275 items, 55 topics** (Regents-style).
+- `data/appsych-bank.json` — **175 items, 35 topics**, **2024-CED-clean**:
+  `scripts/build-banks.py` hard-fails if excluded content (Maslow's hierarchy,
+  Kohlberg, Gardner, psychosexual stages, the three named emotion theories)
+  appears as testable. Humanistic psychology is correctly kept.
+- `data/world-content.json` — unit blurbs/terms, AAQ/EBQ/CRQ/Enduring-Issues
+  tasks with rubrics and model answers, aligned to the real NYS framework and
+  AP CED.
+- Region stations filter the banks by **exact topic strings**, so unit practice
+  stays on-unit.
 
 ---
 
 ## Repository structure
 
 ```
-index.html               # entry; three.js importmap + module bootstrap
-css/styles.css            # HUD, panels, touch controls, loading, fallback
+index.html                 # hub — world cards w/ live seeded map thumbnails (no WebGL)
+world.html                 # the 3D world page (?w=global9 | ?w=appsych)
+css/hub.css                # hub styling
+css/styles.css             # HUD, panels, touch controls, loading, fallback
 js/
-  main.js                 # engine: hub, world load/unload, raycast interaction, HUD, loop
-  controls.js             # WASD + mouse-look + touch joystick + tap-to-walk
-  content-loader.js       # fetch/cache JSON, draw/shuffle questions
-  progress.js             # XP / collectibles / visited, localStorage
-  skill-stations.js       # content panels + MCQ runner + AAQ/EBQ + CRQ + Enduring Issues
+  core/
+    prng.js                # mulberry32 + FNV-1a hash + labeled sub-seeds
+    noise.js               # seeded value noise, fBm, ridged multifractal
+    field-utils.js         # masks, polyline distance, color mixing (pure math)
+  engine/
+    engine.js              # boot + frame loop + quality/degrade + interactions
+    terrain.js             # chunked heightmap mesh, analytic normals, vertex colors
+    sky.js                 # gradient dome shader, sun, clouds, day drift, fog
+    water.js               # animated water plane w/ shore foam
+    scatter.js             # seeded instanced flora per biome
+    structures.js          # procedural landmark architecture (17 builders)
+    stations.js            # placement, prompts, rings, beacon, cleared glow
+    player.js              # avatar + chase cam + terrain-following controller
+    hud.js                 # compass, minimap, quest log, prompt, settings
+    geo-kit.js             # bake vertex-colored parts into one geometry; canvas labels
+    audio.js               # tiny WebAudio chimes (no assets)
+  learn/
+    content-loader.js      # fetch/cache JSON, unit-filtered question draw
+    panels.js              # Learn/Practice station, MCQ runner, FRQ/CRQ/EI overlays
+    progress.js            # XP, per-unit mastery, settings (localStorage)
   worlds/
-    world-utils.js        # shared low-poly builders (markers, labels, ground, instancing)
-    appsych-world.js      # The Mind Atlas
-    global9-world.js      # The Trade Winds World
-data/
-  appsych-bank.json       # AP Psych questions (2024-CED-clean)
-  global9-bank.json       # Global 9 questions
-  world-content.json      # world layouts, content nodes, skill-station prompts/rubrics/models
-assets/                   # (intentionally light — see assets/README.md)
-scripts/build-banks.py    # regenerates the two bank JSONs from the arcade source + scope gate
-.nojekyll                 # serve files starting with _ and js/ verbatim on Pages
+    trade-winds.js         # Global 9 world definition (layout, biomes, field, flora)
+    mind-atlas.js          # AP Psych world definition
+  main-hub.js              # hub bootstrap (paints real maps from the world fields)
+  main-world.js            # world bootstrap (loading screen, WebGL check)
+data/                      # question banks + world content (see provenance above)
+scripts/build-banks.py     # regenerates bank JSONs + AP scope gate
+.nojekyll                  # serve js/ and _-files verbatim on Pages
 ```
 
 ---
 
-## Adding more worlds later
+## Adding another world
 
-The engine is data-driven and modular, so extending it is straightforward:
+1. Write `js/worlds/<key>.js` exporting a `def` — copy the shape of
+   `trade-winds.js`: seed, size, sky/water/light palette, `regions` (with bank
+   topic lists), `skills`, `order`, `paths`, `flora` rules, and a `buildField()`
+   that returns `{ height, color, probe, pathD }`.
+2. Register it in `js/main-world.js` (`WORLDS`) and add a card in `index.html`
+   + `js/main-hub.js`.
+3. Add bank/topic data to `data/` and a node entry per region to
+   `data/world-content.json`.
 
-1. **Add content** to `data/world-content.json` under a new course key (nodes with
-   `pos`/`color`/`terms`, plus any `mcq` / `crq` / `frq` / `ei` station configs). If
-   it's a new MCQ subject, drop a `data/<course>-bank.json` and teach
-   `content-loader.loadBank()` its filename.
-2. **Write a world builder** in `js/worlds/<course>-world.js` exporting
-   `build<Course>World(scene, interactables, content, reducedMotion)`. Reuse
-   `world-utils.js` for markers, labels, ground, and instanced décor.
-3. **Register it** in `js/main.js`: import the builder, branch on the key in
-   `loadWorld()`, and add a `makePortal(...)` (or promote one of the existing
-   `makeStubPortal` stubs) in `loadHub()`.
-
-That's it — controls, raycasting, HUD, XP, and all four station types are shared.
-
-To refresh the question banks, run `python3 scripts/build-banks.py` (it reads the
-arcade source bank, slims it, and re-runs the AP Psych exclusion gate).
+The engine (terrain, water, sky, scatter, stations, player, HUD, panels,
+progress) is fully shared.
 
 ---
 
 ## Run locally
 
-Because it uses ES modules + `fetch`, serve over HTTP (not `file://`):
+ES modules + `fetch` need HTTP (not `file://`):
 
 ```bash
 python3 -m http.server 8848
-# then open http://localhost:8848/
+# open http://localhost:8848/
 ```
 
 ---
 
-*A standalone project — it does not touch or depend on the Review Arcade repo. It
-only reused (copied) that project's vetted question data.*
+*A standalone project — it does not touch or depend on any other repository.
+It only reused (copied) already-vetted question data. No student data leaves
+the device: progress lives in `localStorage` only.*

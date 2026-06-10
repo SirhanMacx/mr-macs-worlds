@@ -1,4 +1,5 @@
 // content-loader.js — fetches and caches the question banks + world content.
+// Paths are relative to the site root pages (index.html / world.html).
 const cache = {};
 
 async function getJSON(path) {
@@ -29,10 +30,15 @@ export function shuffle(arr) {
   return a;
 }
 
-// Pull N questions from a loaded bank, optionally filtered by topic.
-export function drawQuestions(bank, n, topic = null) {
+// Pull N questions from a loaded bank.
+// `topics` may be null (whole bank), a string, or an array of topic strings —
+// region stations pass their unit's topic list so practice stays on-unit.
+export function drawQuestions(bank, n, topics = null) {
   let pool = bank.questions;
-  if (topic) pool = pool.filter(q => q.topic === topic);
+  if (topics) {
+    const set = new Set(Array.isArray(topics) ? topics : [topics]);
+    pool = pool.filter(q => set.has(q.topic));
+  }
   if (pool.length === 0) pool = bank.questions;
   return shuffle(pool).slice(0, Math.min(n, pool.length));
 }
