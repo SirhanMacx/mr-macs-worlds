@@ -42,7 +42,9 @@ export const def = {
   key: 'global9',
   world: 'trade-winds',
   title: 'The Trade Winds World',
-  subtitle: 'Global History 9 — walk the year from the first villages to the first global age.',
+  subtitle: 'Global History 9 — 9R & ENL — walk the year from the first villages to the first global age.',
+  // ENL support: in-world trilingual glossary (EN · 中文 + pinyin · Español)
+  glossary: './data/enl-glossary-global9.json',
   seed: SEED,
   size: 640,
   sea: 0,

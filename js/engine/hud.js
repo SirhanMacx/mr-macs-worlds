@@ -7,7 +7,7 @@ const TAU = Math.PI * 2;
 const wrapA = a => ((a + Math.PI * 3) % TAU) - Math.PI;
 const bearingOf = (dx, dz) => Math.atan2(dx, -dz); // 0 = north (-z), clockwise
 
-export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound, onQuality }) {
+export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound, onQuality, onGlossary }) {
   const hud = document.getElementById('hud');
   hud.innerHTML = `
     <div class="hud-top">
@@ -18,6 +18,7 @@ export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound,
       <canvas id="compass" class="compass"></canvas>
       <div class="hud-right ui-block">
         <span class="hud-xp" title="Experience points">★ <b id="hud-xp">0</b></span>
+        ${onGlossary ? '<button id="btn-gloss" class="hud-btn glossary-open-btn" title="Trilingual glossary — English, 中文, Español (G)">GLOSSARY</button>' : ''}
         <button id="btn-log" class="hud-btn" title="Quest log (Q)">LOG</button>
         <button id="btn-map" class="hud-btn" title="Map (M)">MAP</button>
         <button id="btn-snd" class="hud-btn" title="Sound on/off">SND</button>
@@ -258,6 +259,7 @@ export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound,
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
     if (e.code === 'KeyQ') toggleLog();
     if (e.code === 'KeyM') toggleMap();
+    if (e.code === 'KeyG' && onGlossary) onGlossary();
     if (e.code === 'KeyE' && promptFor) onInteract(promptFor);
   });
 

@@ -15,6 +15,7 @@ import { buildHUD } from './hud.js';
 import { Player } from './player.js';
 import * as Panels from '../learn/panels.js';
 import * as Progress from '../learn/progress.js';
+import * as Glossary from '../learn/glossary.js';
 import * as Audio from './audio.js';
 
 export async function createEngine(def, content, { onProgress = () => {} } = {}) {
@@ -87,6 +88,16 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
     chime: Audio.chime,
   });
 
+  // ---- trilingual glossary (ENL support — worlds that declare one) ----
+  // The glossary stacks ABOVE the station panels: opened over a quiz it
+  // returns to the quiz; opened in the world it returns to the world.
+  if (def.glossary) {
+    Glossary.init(def.glossary, {
+      onOpen() { paused = true; player.enabled = false; player.releaseLock(); },
+      onClose() { if (!Panels.isOpen()) { paused = false; player.enabled = true; } },
+    });
+  }
+
   // ---- interactions ----
   const nodesById = {};
   (content[def.key].nodes || []).forEach(n => { nodesById[n.id] = n; });
@@ -113,6 +124,7 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
     def, stations, isMobile,
     onInteract: interact,
     onHelp: () => Panels.openHelp(def),
+    onGlossary: def.glossary ? () => (Glossary.isOpen() ? Glossary.close() : Glossary.open()) : null,
     onSound: (on) => { Progress.setSetting('muted', !on); Audio.setMuted(!on); if (on) Audio.chime('good'); },
     onQuality: (on) => setQuality(on),
   });

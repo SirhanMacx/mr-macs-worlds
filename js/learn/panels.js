@@ -5,6 +5,8 @@
 // player to the world exactly where they were.
 import { loadBank, drawQuestions } from './content-loader.js';
 import * as Progress from './progress.js';
+import * as Glossary from './glossary.js';
+import * as Read from './read-aloud.js';
 
 const overlay = () => document.getElementById('panel-overlay');
 const root = () => document.getElementById('panel-root');
@@ -37,9 +39,14 @@ export function closePanel() {
 export function isOpen() { return overlay().classList.contains('open'); }
 
 function header(title, sub) {
+  // Worlds with a trilingual glossary (ENL support) get a glossary button
+  // inside every station panel, so it is reachable mid-quiz / mid-lab.
+  const gloss = Glossary.isAvailable()
+    ? '<button class="panel-gloss glossary-open-btn" type="button" title="Trilingual glossary — English, 中文, Español (G)" aria-label="Open the trilingual glossary">GLOSSARY</button>'
+    : '';
   return `<div class="panel-head">
       <div><h2>${escapeHTML(title)}</h2>${sub ? `<p class="panel-sub">${escapeHTML(sub)}</p>` : ''}</div>
-      <button class="panel-close" aria-label="Close">✕</button>
+      <div class="panel-head-btns">${gloss}<button class="panel-close" aria-label="Close">✕</button></div>
     </div>`;
 }
 function wireClose() {
@@ -155,7 +162,9 @@ function runMCQ({ courseKey, bank, topics, n, mount, onFinish, onAgain }) {
     const ch = shuffled[idx];
     mount.innerHTML = `
       <div class="mcq-meta">Question ${idx + 1} of ${questions.length} · <span class="mcq-topic">${escapeHTML(q.topic)}</span></div>
-      <div class="mcq-prompt">${escapeHTML(q.prompt)}</div>
+      <div class="mcq-prompt">${escapeHTML(q.prompt)}${Read.buttonHTML(
+        q.prompt + '. ' + ch.map((c, i) => 'Choice ' + (i + 1) + ': ' + c).join('. '),
+        { lang: 'en-US', label: 'Read this question and its choices aloud' })}</div>
       <div class="mcq-choices">${ch.map((c, i) => `<button class="mcq-choice" data-i="${i}">${escapeHTML(c)}</button>`).join('')}</div>
       <div class="mcq-feedback" id="mcq-fb"></div>
       <div class="panel-actions" id="mcq-actions"></div>`;
@@ -347,6 +356,7 @@ export function openHelp(world) {
            <p><strong>Interact:</strong> walk up to a landmark and press <kbd>E</kbd>.</p>`}
       <p><strong>Find your way:</strong> the compass (top) and the map (<kbd>M</kbd>) mark every station. A light pillar marks the suggested next stop — open the quest log (<kbd>Q</kbd>) to see your progress through the year and tap any station to set the beacon.</p>
       <p><strong>Learning stations</strong> teach each unit's key ideas, then quiz you with real exam-style questions from that unit only. Score 70%+ after studying the terms to clear a station and light it up. Skill stations drill the written exam tasks.</p>
+      ${world && world.glossary ? `<p><strong>Glossary</strong> (<kbd>G</kbd>): every key word in English, 中文 + pinyin, and Español, with a simple-English definition and read-aloud speaker buttons. Open it any time — even in the middle of a quiz — from the GLOSSARY button.</p>` : ''}
       <p class="help-note">This world is procedurally generated from a fixed seed — it is the same world for every student, every visit. Progress and XP save on this device only. Built for Mr. Maccarello's classes.</p>
     </div>
   `, { wide: false });

@@ -3,7 +3,19 @@
 A **seeded, procedurally generated, open-world 3D learning environment**.
 Students free-roam two living continents, walk up to landmark **learning
 stations**, and master real exam skills — AP Psychology (2024 CED) and the NYS
-Global History & Geography 9 path.
+Global History & Geography 9 path. The Trade Winds World serves **both Global 9
+sections — 9R and Global 9 ENL** (separate courses with their own pacing; the
+world is shared, the calendars are not), with built-in ENL support:
+
+- **Trilingual glossary** — 244 course terms in English · 中文 + pinyin ·
+  Español, each with a simple-English definition, searchable, grouped into 9
+  categories. Open it from the GLOSSARY button on the HUD (or press `G`), or
+  from inside any quiz / lab panel — closing it returns you exactly where you
+  were. Data: `data/enl-glossary-global9.json` (shared with the arcade).
+- **Read-aloud** — speaker buttons on every quiz question and glossary entry
+  use the browser's built-in Web Speech API (en-US for questions and
+  definitions, zh-CN / es-ES for translated terms). No network calls, nothing
+  leaves the device; buttons simply don't render where speech is unavailable.
 
 Built with **three.js via CDN importmap, vanilla ES modules, fully static** —
 no build step, no bundler. Designed to run at 60 fps on **school Chromebooks**
@@ -17,7 +29,7 @@ and phones.
 
 | World | Course | Seed |
 |---|---|---|
-| **The Trade Winds World** | Global History 9 | `20270623` (the Global Regents date) |
+| **The Trade Winds World** | Global History 9 — 9R & ENL | `20270623` (the Global Regents date) |
 | **The Mind Atlas** | AP Psychology | `20270511` (the projected AP exam date) |
 
 Every world is generated **deterministically from its fixed seed**
@@ -92,6 +104,9 @@ the *same* height/biome fields as the 3D terrain, as proof.
 All practice content is **real and vetted** — nothing invented:
 
 - `data/global9-bank.json` — **275 items, 55 topics** (Regents-style).
+- `data/enl-glossary-global9.json` — **244 trilingual terms** (EN / 中文 +
+  pinyin / ES + simple-English definitions) in 9 categories, for the in-world
+  ENL glossary.
 - `data/appsych-bank.json` — **175 items, 35 topics**, **2024-CED-clean**:
   `scripts/build-banks.py` hard-fails if excluded content (Maslow's hierarchy,
   Kohlberg, Gardner, psychosexual stages, the three named emotion theories)
