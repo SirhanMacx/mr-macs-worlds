@@ -1,10 +1,11 @@
-/* hub.css — the world-select hub. Fast, 2D, real procgen map thumbnails. */
+/* hub.css — the title screen. Animated canvas backdrop behind, three world
+   cards with live save progress in front. Zero emoji, zero external assets. */
 :root {
   --ink: #eef2fb;
   --ink-dim: #a7b3d1;
   --bg: #070b16;
-  --card: #0e1527;
-  --edge: rgba(122, 152, 220, 0.2);
+  --card: rgba(11, 17, 33, 0.82);
+  --edge: rgba(122, 152, 220, 0.22);
   --accent: #59b0ff;
   --gold: #ffd166;
 }
@@ -12,68 +13,128 @@
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0; min-height: 100%;
-  background:
-    radial-gradient(1100px 600px at 18% -10%, #14204000, #0d16300d),
-    radial-gradient(900px 600px at 90% 0%, #1a234416, transparent),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-.hub { max-width: 1020px; margin: 0 auto; padding: 28px 20px 40px; }
+/* animated backdrop */
+#bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
 
-.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.hub-brand { display: flex; align-items: center; gap: 14px; }
-.hub-brand h1 { margin: 0; font-size: clamp(24px, 4.5vw, 34px); letter-spacing: -0.02em; }
-.tagline { margin: 3px 0 0; color: var(--ink-dim); font-size: 14px; }
-.hub-xp {
-  align-items: center; gap: 5px; color: var(--gold); font-weight: 700;
-  background: rgba(255, 209, 102, 0.08); border: 1px solid rgba(255, 209, 102, 0.3);
-  padding: 8px 14px; border-radius: 12px; font-size: 14px;
+.hub { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 34px 20px 36px; }
+
+/* ---------- title treatment ---------- */
+.hub-head { text-align: center; margin-bottom: 8px; }
+.hub-kicker {
+  margin: 0; font: 800 clamp(13px, 2.2vw, 16px)/1 system-ui;
+  letter-spacing: 0.55em; text-indent: 0.55em; color: var(--gold);
+  text-shadow: 0 2px 14px rgba(255, 179, 71, 0.35);
+}
+.hub-title {
+  margin: 4px 0 0; font: 900 clamp(52px, 11vw, 92px)/0.95 Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.08em; text-indent: 0.08em;
+  background: linear-gradient(180deg, #fff6dd 18%, #ffd166 52%, #c98a3d 88%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 18px rgba(20, 12, 0, 0.65));
+}
+.tagline {
+  margin: 12px 0 0; color: var(--ink-dim); font-size: clamp(13px, 2.4vw, 15px);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 
+/* ---------- world cards ---------- */
 .cards {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
-  gap: 18px; margin-top: 26px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr));
+  gap: 18px; margin-top: 30px;
 }
 .card {
+  display: flex; flex-direction: column;
   background: var(--card); border: 1px solid var(--edge); border-radius: 20px;
-  overflow: hidden; cursor: pointer; transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
-  outline: none;
+  overflow: hidden; cursor: pointer; outline: none;
+  backdrop-filter: blur(6px);
+  transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
 .card:hover, .card:focus-visible {
-  transform: translateY(-3px);
-  border-color: rgba(140, 175, 245, 0.55);
-  box-shadow: 0 14px 44px rgba(20, 40, 90, 0.35);
+  transform: translateY(-4px);
+  border-color: rgba(255, 209, 102, 0.55);
+  box-shadow: 0 18px 50px rgba(10, 20, 50, 0.55), 0 0 0 1px rgba(255, 209, 102, 0.18);
 }
-.card-map { position: relative; aspect-ratio: 17/12; background: #0a1122; }
+.card-map { position: relative; aspect-ratio: 17/10; background: #0a1122; flex: none; }
+.card-map::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(7, 11, 22, 0.18), transparent 36%, rgba(7, 11, 22, 0.55));
+  pointer-events: none;
+}
 .card-map canvas {
-  width: 100%; height: 100%; display: block; image-rendering: auto;
+  width: 100%; height: 100%; display: block; object-fit: cover;
   opacity: 0; transition: opacity 0.6s;
 }
 .card-map canvas.painted { opacity: 1; }
-.card-go {
-  position: absolute; right: 12px; bottom: 12px;
-  background: rgba(8, 12, 24, 0.82); border: 1px solid rgba(150, 185, 255, 0.5);
-  color: var(--ink); font: 700 12px system-ui; letter-spacing: 0.06em;
-  padding: 8px 13px; border-radius: 11px;
+.card-saga {
+  position: absolute; left: 12px; top: 11px; z-index: 1;
+  font: 800 10.5px/1 system-ui; letter-spacing: 0.28em; text-indent: 0.28em;
+  color: #ffe9b0; background: rgba(8, 12, 24, 0.78); border: 1px solid rgba(255, 209, 102, 0.4);
+  padding: 6px 9px; border-radius: 9px;
 }
-.card:hover .card-go, .card:focus-visible .card-go { background: #2f6fd0; border-color: #4d8ae6; }
-.card-body { padding: 16px 18px 18px; }
-.card-body h2 { margin: 0 0 2px; font-size: 21px; letter-spacing: -0.01em; }
-.card-course { margin: 0 0 8px; color: var(--accent); font-weight: 600; font-size: 13px; }
-.card-desc { margin: 0; color: var(--ink-dim); font-size: 13.5px; line-height: 1.6; }
-.card-progress { margin: 12px 0 0; font-size: 12.5px; color: var(--ink-dim); }
-.card-progress b { color: var(--gold); }
 
-.hub-how { margin-top: 26px; }
-.how {
-  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--edge);
-  border-radius: 18px; padding: 18px 20px;
+.card-body { display: flex; flex-direction: column; flex: 1; padding: 15px 17px 16px; }
+.card-course {
+  margin: 0 0 3px; color: var(--accent); font-weight: 700; font-size: 12px;
+  letter-spacing: 0.05em;
 }
-.how h3 { margin: 0 0 8px; font-size: 16px; }
-.how p { margin: 6px 0; color: var(--ink-dim); font-size: 13.5px; line-height: 1.65; }
-.controls-line strong { color: var(--ink); }
+.card-body h2 { margin: 0 0 7px; font: 800 25px/1.1 Georgia, serif; letter-spacing: 0.01em; color: #f6edd8; }
+.card-hook { margin: 0; color: var(--ink-dim); font-size: 13.5px; line-height: 1.55; }
 
-.hub-foot { margin-top: 26px; text-align: center; }
-.hub-foot p { color: rgba(167, 179, 209, 0.65); font-size: 12px; }
+.card-progress {
+  margin: 12px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-dim);
+  border-top: 1px dashed rgba(122, 152, 220, 0.25); padding-top: 10px;
+}
+.card-progress b { color: var(--gold); font-weight: 800; }
+.card-progress .pg-line { display: block; }
+.card-progress .pg-fresh { color: rgba(167, 179, 209, 0.8); font-style: italic; }
+.pg-bar {
+  display: block; height: 5px; border-radius: 3px; margin-top: 7px;
+  background: rgba(255, 255, 255, 0.08); overflow: hidden;
+}
+.pg-bar i {
+  display: block; height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #ffb347, #ffd166);
+}
+
+.card-actions { display: flex; align-items: center; gap: 12px; margin-top: 13px; }
+.play-btn {
+  flex: 1; appearance: none; cursor: pointer;
+  font: 800 14px/1 system-ui; letter-spacing: 0.12em; text-indent: 0.12em;
+  color: #1b1304; background: linear-gradient(180deg, #ffe2a0, #ffc14d);
+  border: 1px solid #b97f23; border-radius: 12px; padding: 13px 14px;
+  box-shadow: 0 4px 16px rgba(255, 193, 77, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
+}
+.play-btn:hover { filter: brightness(1.07); transform: translateY(-1px); }
+.play-btn:active { transform: translateY(1px); box-shadow: 0 1px 6px rgba(255, 193, 77, 0.2); }
+.new-btn {
+  appearance: none; cursor: pointer; background: none; border: none;
+  color: rgba(167, 179, 209, 0.85); font: 600 12px/1 system-ui;
+  text-decoration: underline; text-underline-offset: 3px; padding: 8px 2px;
+}
+.new-btn:hover { color: #ff9a9a; }
+
+/* ---------- footer strip ---------- */
+.hub-how { margin-top: 26px; text-align: center; }
+.hub-how p {
+  margin: 5px 0; color: rgba(167, 179, 209, 0.85); font-size: 12.5px; line-height: 1.6;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+.hub-how strong { color: var(--ink); }
+
+.hub-foot { margin-top: 18px; text-align: center; }
+.hub-foot p { color: rgba(167, 179, 209, 0.55); font-size: 12px; margin: 0; }
+
+@media (max-width: 640px) {
+  .hub { padding-top: 26px; }
+  .cards { margin-top: 24px; }
+  .card-body h2 { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .play-btn { transition: none; }
+}

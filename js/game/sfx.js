@@ -172,3 +172,15 @@ function birdChirp() {
     tone({ freq: base + Math.random() * 500, at: i * 0.12 + Math.random() * 0.04, dur: 0.07, vol: 0.018, slide: 320, type: 'sine' });
   }
 }
+
+// ---------- tab-hide pause ----------
+// When the tab is hidden (bell rings, student switches to Classroom) the
+// whole soundscape suspends — ambient wind, birds, everything. It resumes
+// in place when the tab returns. Saves flush separately in game/save.js.
+document.addEventListener('visibilitychange', () => {
+  if (!ctx) return;
+  try {
+    if (document.hidden) ctx.suspend();
+    else if (ctx.state === 'suspended') ctx.resume();
+  } catch (e) { /* audio context unavailable */ }
+});

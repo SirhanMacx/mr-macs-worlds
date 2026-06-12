@@ -3,90 +3,84 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Mr. Mac's Worlds — Explore. Learn. Master.</title>
-  <meta name="description" content="Procedurally generated open-world 3D learning environments for AP Psychology and Global History 9 (9R and ENL) — walk the world, find the landmarks, master the real exam skills." />
+  <title>Mr. Mac's Worlds — Three worlds. Three quests.</title>
+  <meta name="description" content="Three real games for three classes: Trade Winds (Global History 9 trading empire), Mind Atlas (AP Psychology mind-delver) and Word Harbor (Global 9 ENL builder-collector). Procedural 3D worlds, no logins, saves on your device." />
   <meta name="theme-color" content="#070b16" />
   <meta name="color-scheme" content="dark" />
   <meta property="og:title" content="Mr. Mac's Worlds" />
-  <meta property="og:description" content="Explore procedurally generated 3D worlds and master AP Psychology and the NYS Global History Regents." />
+  <meta property="og:description" content="Trade Winds, Mind Atlas and Word Harbor — three explorable game worlds that teach the real course. Knowing things makes you richer, stronger and faster." />
   <meta property="og:type" content="website" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23070b16'/%3E%3Cpath d='M18 72 L36 38 L50 58 L64 30 L82 72 Z' fill='%234a8f5d'/%3E%3Ccircle cx='70' cy='26' r='9' fill='%23ffb347'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./css/hub.css" />
 </head>
 <body>
+  <canvas id="bg" aria-hidden="true"></canvas>
+
   <main class="hub">
     <header class="hub-head">
-      <div class="hub-brand">
-        <svg viewBox="0 0 100 100" width="44" height="44" aria-hidden="true">
-          <rect width="100" height="100" rx="20" fill="#0d1426"/>
-          <path d="M18 72 L36 38 L50 58 L64 30 L82 72 Z" fill="#4a8f5d"/>
-          <circle cx="70" cy="26" r="9" fill="#ffb347"/>
-        </svg>
-        <div>
-          <h1>Mr. Mac's Worlds</h1>
-          <p class="tagline">Three living worlds. Every exam skill. Walk the year.</p>
-        </div>
-      </div>
-      <span id="hub-xp" class="hub-xp" style="display:none">★ <b>0</b> XP</span>
+      <p class="hub-kicker">MR. MAC'S</p>
+      <h1 class="hub-title">WORLDS</h1>
+      <p class="tagline">Three worlds. Three quests. Every exam skill, played for keeps.</p>
     </header>
 
     <section class="cards">
-      <article id="card-global9" class="card" tabindex="0" role="link" aria-label="Enter The Trade Winds World — Global History 9, 9R and ENL">
-        <div class="card-map"><canvas width="340" height="240"></canvas><span class="card-go">ENTER →</span></div>
+      <article id="card-global9" class="card" tabindex="0" role="link"
+        aria-label="Trade Winds — Global History 9. A trading-empire game.">
+        <div class="card-map"><canvas width="340" height="200"></canvas><span class="card-saga">SAGA I</span></div>
         <div class="card-body">
-          <h2>The Trade Winds World</h2>
-          <p class="card-course">Global History 9 — 9R &amp; ENL · NYS Regents path</p>
-          <p class="card-desc">One seeded continent, eight regions of the year: the river delta, the belief
-            crossroads, a classical coast, the dune sea and its caravanserai, the steppe citadel, a
-            Renaissance hill town, and the Harbor of Encounters — plus the Stimulus MCQ Hall, the
-            Document Lab (CRQ) and the Enduring Issues Quest. ENL support built in: a trilingual
-            glossary (English · 中文 + pinyin · Español) and read-aloud, available everywhere in the world.</p>
-          <p class="card-progress"></p>
+          <p class="card-course">Global History 9</p>
+          <h2>Trade Winds</h2>
+          <p class="card-hook">Start with one donkey and thirty shekels. Build a trade empire across
+            4,500 years — river valleys to the first global age.</p>
+          <p class="card-progress" data-world="trade-winds"></p>
+          <div class="card-actions">
+            <button class="play-btn" type="button">NEW GAME</button>
+            <button class="new-btn" type="button" hidden>Start over</button>
+          </div>
         </div>
       </article>
 
-      <article id="card-appsych" class="card" tabindex="0" role="link" aria-label="Enter The Mind Atlas — AP Psychology">
-        <div class="card-map"><canvas width="340" height="240"></canvas><span class="card-go">ENTER →</span></div>
+      <article id="card-appsych" class="card" tabindex="0" role="link"
+        aria-label="Mind Atlas — AP Psychology. A mind-delver action-puzzle game.">
+        <div class="card-map"><canvas width="340" height="200"></canvas><span class="card-saga">SAGA II</span></div>
         <div class="card-body">
-          <h2>The Mind Atlas</h2>
-          <p class="card-course">AP Psychology · 2024 CED</p>
-          <p class="card-desc">An inner world at permanent dusk: Observatory Heights (research methods), the
-            bioluminescent Neural Forest, the Memory Archipelago and its retrieval lighthouse, the Growth
-            Grove, the Social Plaza and the Wellness Springs — plus the mixed MCQ Exam Gate and the
-            Free-Response Lab (AAQ + EBQ).</p>
-          <p class="card-progress"></p>
+          <p class="card-course">AP Psychology</p>
+          <h2>Mind Atlas</h2>
+          <p class="card-hook">Shrink into a vast inner world. Restore the five fragmented regions of
+            the mind before the Exam of the Self.</p>
+          <p class="card-progress" data-world="mind-atlas"></p>
+          <div class="card-actions">
+            <button class="play-btn" type="button">NEW GAME</button>
+            <button class="new-btn" type="button" hidden>Start over</button>
+          </div>
         </div>
       </article>
 
-      <article id="card-enl" class="card" tabindex="0" role="link" aria-label="Enter Word Harbor — Global History 9 ENL">
-        <div class="card-map"><canvas width="340" height="240"></canvas><span class="card-go">ENTER →</span></div>
+      <article id="card-enl" class="card" tabindex="0" role="link"
+        aria-label="Word Harbor — Global 9 ENL. A gentle builder-collector game, friendly for new English speakers.">
+        <div class="card-map"><canvas width="340" height="200"></canvas><span class="card-saga">SAGA III</span></div>
         <div class="card-body">
+          <p class="card-course">Global 9 ENL · 英语新手友好 · Para principiantes</p>
           <h2>Word Harbor</h2>
-          <p class="card-course">Global History 9 — ENL · gentle builder-collector</p>
-          <p class="card-desc">You arrive by boat at a warm new land. Collect <strong>word-gems</strong> — every
-            gem is a real history word you can hear in English, 中文 and Español — then spend them to build
-            sentence-bridges between seven islands and raise your own harbor town, one building per word
-            family. Story quests in simple English, friendly festival games, no timers, no fail states.</p>
-          <p class="card-progress"></p>
+          <p class="card-hook">Arrive by boat in a warm new land. Collect word-gems you can hear in
+            English, 中文 and Español — and raise your own harbor town.</p>
+          <p class="card-progress" data-world="word-harbor"></p>
+          <div class="card-actions">
+            <button class="play-btn" type="button">NEW GAME</button>
+            <button class="new-btn" type="button" hidden>Start over</button>
+          </div>
         </div>
       </article>
     </section>
 
     <section class="hub-how">
-      <div class="how">
-        <h3>How it works</h3>
-        <p>Each world is <strong>procedurally generated from a fixed seed</strong> — the same mountains, roads
-          and landmarks for every student, every visit. Walk (or run) between learning stations: study a
-          unit's key ideas, then clear the station by scoring 70%+ on real exam-style questions drawn from
-          that unit. A light beacon always marks a suggested next stop, the quest log tracks your mastery,
-          and progress saves on your device.</p>
-        <p class="controls-line"><strong>Desktop:</strong> WASD + mouse · Shift to run · E to interact ·
-          <strong>Touch:</strong> joystick + drag to look.</p>
-      </div>
+      <p><strong>Desktop:</strong> WASD + mouse · SHIFT run · E interact &nbsp;·&nbsp;
+        <strong>Touch:</strong> joystick + drag to look, tap prompts to act</p>
+      <p>Same seed, same world, every visit. Progress saves on this device — no accounts, nothing leaves your browser.</p>
     </section>
 
     <footer class="hub-foot">
-      <p>Built for Mr. Maccarello's classes · runs entirely in your browser · nothing you type is ever sent anywhere.</p>
+      <p>Mr. Maccarello</p>
     </footer>
   </main>
 

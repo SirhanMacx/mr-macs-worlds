@@ -550,10 +550,16 @@ export async function initGame(api) {
       }
     }
 
-    // quest-giver markers bob
+    // quest-giver markers bob + pulse (turn-in-ready markers beat faster/wider)
     if (!isMobile || (t % 0.1 < 0.05)) {
       for (const { marker } of npcRecs) {
-        if (marker.visible) { marker.position.y = 2.15 + Math.sin(t * 2.4) * 0.08; marker.rotation.y = t * 1.4; }
+        if (marker.visible) {
+          marker.position.y = 2.15 + Math.sin(t * 2.4) * 0.08;
+          marker.rotation.y = t * 1.4;
+          marker.scale.setScalar(marker.material === markerMatReady
+            ? 1 + Math.sin(t * 4.6) * 0.22
+            : 1 + Math.sin(t * 2.4) * 0.1);
+        }
       }
     }
 

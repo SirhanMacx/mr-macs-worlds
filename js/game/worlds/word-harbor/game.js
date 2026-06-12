@@ -320,7 +320,10 @@ export async function initGame(api) {
         label.position.set(b.plot[0], y + 7.2, b.plot[1]);
         scene.add(label);
         rec.label = label;
-        rec.villager = spawnVillager(b, ix);
+        // draw-call budget: a villager moves in at every OTHER building (each
+        // procedural humanoid costs ~8 draw calls; a full 9-building town with
+        // 9 villagers + 9 always-on labels blew the 120-call budget up close)
+        rec.villager = ix % 2 === 0 ? spawnVillager(b, ix) : null;
         rec.bExtra = stations.addExtra({
           id: 'built-' + b.id, type: 'building', verb: 'Visit', label: b.name,
           pos: new THREE.Vector3(b.plot[0], y, b.plot[1]), interactR: 7,
@@ -773,7 +776,7 @@ export async function initGame(api) {
   });
 
   // ---------- frame loop ----------
-  let stepT = 0, saveT = 0, waveT = 0;
+  let stepT = 0, saveT = 0, waveT = 0, labelT = 0;
   api.onFrame((dt, t) => {
     npcSys.update(dt, t, player.pos);
     particles.update(dt);
@@ -797,6 +800,20 @@ export async function initGame(api) {
         const dx = player.pos.x - n.group.position.x;
         const dz = player.pos.z - n.group.position.z;
         n.talking = (dx * dx + dz * dz) < 49;
+      }
+    }
+
+    // building name-labels show only as you approach (less clutter, and each
+    // sprite is a draw call — a finished town keeps only the nearest few)
+    labelT -= dt;
+    if (labelT <= 0) {
+      labelT = 0.4;
+      for (const id in buildMeshes) {
+        const rec = buildMeshes[id];
+        if (!rec.label) continue;
+        const dx = player.pos.x - rec.label.position.x;
+        const dz = player.pos.z - rec.label.position.z;
+        rec.label.visible = (dx * dx + dz * dz) < 30 * 30;
       }
     }
 

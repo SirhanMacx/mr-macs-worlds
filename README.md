@@ -1,191 +1,151 @@
 # Mr. Mac's Worlds
 
-A **seeded, procedurally generated, open-world 3D learning environment** —
-and, as of v3, a **real game**. The Global 9 world is now **TRADE WINDS**, a
-trading-empire game spanning 4,500 years: 9 real cities with live markets and
-historically true price spreads, quest chains given by real figures (Hammurabi's
-envoy, Herodotus, Ashoka's missionary, Zhang Qian, Mansa Musa, Ibn Battuta,
-Zheng He, Lorenzo de' Medici), travel events on the real routes (monsoon
-timing, Sahara night-travel, caravanserai tolls, quarantine) with in-game
-consequences, ranked Guild Exams built from the 275-question Regents bank, era
-progression with fog-of-war (River Valleys → Classical → Post-Classical →
-First Global Age), XP/levels/perks, caravan upgrades, a pack animal at your
-heels, synthesized SFX and particles — all procedural, all static, saves in
-localStorage. Design doc: `docs/GAME_DESIGN.md`. Shared game systems live in
-`js/game/` and are reused by later worlds.
-Students free-roam two living continents, walk up to landmark **learning
-stations**, and master real exam skills — AP Psychology (2024 CED) and the NYS
-Global History & Geography 9 path. The Trade Winds World serves **both Global 9
-sections — 9R and Global 9 ENL** (separate courses with their own pacing; the
-world is shared, the calendars are not), with built-in ENL support:
+**Three real games — one per class.** Seeded, procedurally generated 3D
+worlds where *knowing the course material is the game mechanic*: knowledge
+makes you richer, stronger, and faster inside the game verbs, never a quiz
+that interrupts them. Fully static (GitHub Pages), no logins, no accounts,
+no build step — three.js via CDN importmap and vanilla ES modules, tuned for
+60 fps on school Chromebooks and phones.
 
-- **Trilingual glossary** — 244 course terms in English · 中文 + pinyin ·
-  Español, each with a simple-English definition, searchable, grouped into 9
-  categories. Open it from the GLOSSARY button on the HUD (or press `G`), or
-  from inside any quiz / lab panel — closing it returns you exactly where you
-  were. Data: `data/enl-glossary-global9.json` (shared with the arcade).
-- **Read-aloud** — speaker buttons on every quiz question and glossary entry
-  use the browser's built-in Web Speech API (en-US for questions and
-  definitions, zh-CN / es-ES for translated terms). No network calls, nothing
-  leaves the device; buttons simply don't render where speech is unavailable.
+| World | Course | Genre | URL |
+|---|---|---|---|
+| **Trade Winds** | Global History 9 | trading-empire game | `world.html?w=global9` |
+| **Mind Atlas** | AP Psychology (2024 CED) | mind-delver action-puzzle | `world.html?w=appsych` |
+| **Word Harbor** | Global 9 ENL · 英语新手友好 · Para principiantes | gentle builder-collector | `world.html?w=enl` |
 
-Built with **three.js via CDN importmap, vanilla ES modules, fully static** —
-no build step, no bundler. Designed to run at 60 fps on **school Chromebooks**
-and phones.
+The hub (`index.html`) is a game title screen: an animated dusk diorama,
+three world cards with **live progress read from each game's save** (rank /
+era / net worth · regions restored · words + buildings), and a
+Continue / New-Game choice per world. Design doc: `docs/GAME_DESIGN.md`.
 
 ---
 
-## v2 — what it is
+## The three games
 
-### Two open worlds, one engine
+### Trade Winds — *Global History 9*
+Start in 3000 BCE with one donkey and thirty shekels; end with a trade empire
+spanning 4,500 years. Nine real cities with live markets and historically
+true price spreads; quest chains from real figures (Hammurabi's envoy,
+Herodotus, Ashoka's missionary, Zhang Qian, Mansa Musa, Ibn Battuta, Zheng
+He, Lorenzo de' Medici); travel events on the real routes (monsoon timing,
+Sahara night-travel, caravanserai tolls, quarantine) answered by **applying**
+course knowledge; era progression with map fog-of-war (River Valleys →
+Classical → Post-Classical → First Global Age); XP / levels / perks, caravan
+upgrades, a pack animal at your heels. The 275-question Regents bank powers
+optional, diegetic **Guild Exams** (Peddler → Magnate). Every city, good,
+price spread and event is real history; famous figures speak paraphrase
+grounded in the record, never invented verbatim quotes.
 
-| World | Course | Seed |
-|---|---|---|
-| **The Trade Winds World** | Global History 9 — 9R & ENL | `20270623` (the Global Regents date) |
-| **The Mind Atlas** | AP Psychology | `20270511` (the projected AP exam date) |
+### Mind Atlas — *AP Psychology*
+You are a Mind Cartographer shrunk into a vast inner world, restoring five
+fragmented regions before the Exam of the Self. Each region is a
+**mechanic-puzzle built from the actual concept**: route neural signals with
+the right neurotransmitter keys, carry memory orbs through a working-memory
+limit of 7±2, condition a creature companion and watch the acquisition curve,
+judge a crowd against attribution bias, rebuild distorted thoughts on the
+evidence. **Misconception Wraiths** are mini-bosses you defeat by choosing
+the correct refutation — wrong answers cost confidence, not red X's.
+Restoring a region grants a psych-themed ability (Chunking, Habituation...)
+that gates the next region, metroidvania-style. AAQ/EBQ practice runs as
+**Case Files**; the 175-item bank fuels the optional Trial of the Self.
+Strictly **2024-CED-scoped** — excluded content never appears as a correct
+answer (`scripts/build-banks.py` hard-fails otherwise).
 
-Every world is generated **deterministically from its fixed seed**
-(mulberry32 PRNG + seeded value-noise / fBm / ridged multifractal). Same seed,
-same mountains, same roads, same landmark positions — for every student, every
-visit, on every device. The hub's map thumbnails are painted at runtime from
-the *same* height/biome fields as the 3D terrain, as proof.
-
-### The land
-- **Heightmap terrain** built from layered noise: continent mask, ridged
-  mountain ranges, domain-warped hills, biome-blended dunes / steppe / delta /
-  terraces, rivers carved below sea level, roads raised into causeways, and
-  flattened building pads under every station.
-- **Per-vertex biome coloring** (grass, savanna, two-tone dunes, wetland,
-  beach sand, rock-by-slope, snow/crystal by altitude, painted road ribbons)
-  on a single shared `MeshStandardMaterial`.
-- **Animated water** — one plane, one cheap shader: shoreline tinting and foam
-  from pre-sampled terrain depth, two-wave vertex bob, scrolling sparkle.
-- **Sky dome shader** (zenith/horizon gradient + sun disc), drifting instanced
-  clouds, hemisphere + directional light, and matched exponential fog with a
-  slow noon-to-golden-hour drift.
-- **Instanced flora** — hundreds to ~2,000 trees / palms / cypress / glowing
-  dream-trees / rocks / crystals / reeds / grass tufts, placed by seeded
-  rejection-sampling against the biome field (one draw call per archetype).
-
-### The explorer
-- Third-person procedural avatar (walk cycle, hop, soft blob shadow) with a
-  smoothed chase camera.
-- **Terrain collision is analytic** — the player samples the exact `height(x, z)`
-  function the mesh was built from. No raycasts, no physics engine, no cost.
-- **Desktop:** WASD/arrows + drag-look or click-to-pointer-lock, Shift to run,
-  Space to hop, wheel to zoom. **Touch:** virtual joystick (push far to run) +
-  drag-look.
-
-### The learning layer (the point)
-- **8 region stations** in Trade Winds (Origins Foothills, River Delta, Belief
-  Crossroads, Classical Coast, Oasis Caravanserai, Steppe Citadel, Renaissance
-  Hill Town, Harbor of Encounters) and **6** in Mind Atlas (Observatory
-  Heights, Neural Forest, Memory Archipelago, Growth Grove, Social Plaza,
-  Wellness Springs) — each with a **distinct procedural silhouette** (ziggurat,
-  colonnaded temple, caravanserai, walled hill town with campanile, harbor
-  with caravel, giant neuron, retrieval lighthouse...).
-- Walk up → prompt → **E / tap** opens the station overlay **in place**:
-  - **Learn** tab — the unit's key ideas and terms (+XP for studying).
-  - **Practice** tab — 10 MCQs drawn **only from that unit's topics** in the
-    real question banks. Score **70%+ after studying to clear the station** —
-    it lights up gold across the world, the minimap, and the quest log.
-- **Skill stations** drill the written exam: **Free-Response Lab** (real AAQ +
-  EBQ tasks with rubrics and model answers), **Document Lab** (NYS CRQ set),
-  **Hall of Enduring Issues** (the culminating Regents essay skill), and mixed
-  MCQ halls.
-- **HUD**: live compass strip with station markers, procedural minimap painted
-  from the height field, light-pillar **beacon** to the suggested next station,
-  quest log with per-unit mastery (tap any row to re-aim the beacon), XP, and
-  persistent progress in `localStorage`.
-
-### Performance posture (Chromebook-first)
-- Pixel ratio clamped (≤1.5 desktop, 1 on touch); auto-degrades to 1 if the
-  first seconds run slow.
-- **< 100 draw calls**: chunked terrain under one material, one InstancedMesh
-  per flora archetype, stations baked to one solid + one glow mesh each,
-  distance-faded label sprites.
-- Exp2 fog + tight far plane do the distance culling; **no postprocessing**;
-  shadows are an opt-in **HQ** toggle.
-- Reduced-motion support (OS-detected), WebAudio chimes (muted by default),
-  graceful WebGL-fallback page.
+### Word Harbor — *Global 9 ENL*
+You arrive by boat in a warm new land — a gentle builder-collector that
+mirrors the newcomer experience. Collect **word-gems** (each is a real
+glossary term; tap to hear it in English, 中文, then Español via the
+browser's built-in speech — nothing leaves the device), spend words to build
+**sentence-bridges** between seven unit-themed islands and raise a harbor
+town one word-family building at a time. Story quests retell unit content in
+simple English (12 words max per line, picture-first); festival games are
+MODS-style practice with **no timers, no death, no fail states** — wrong
+answers cost nothing and retry freely. Capstone: the Time Travel Festival,
+presented with the sentences you built. 244 trilingual terms
+(`data/enl-glossary-global9.json`).
 
 ---
 
-## Content provenance & scope
+## Controls
 
-All practice content is **real and vetted** — nothing invented:
+- **Desktop:** WASD / arrows + mouse-look (drag or click for pointer lock) ·
+  SHIFT run · SPACE hop · **E** interact · M map/atlas · J journal · G glossary
+- **Touch:** virtual joystick (push far to run) + drag-to-look · tap prompts
+  to act. Verified at 390 px-wide viewports.
+- Pausing is automatic whenever any overlay is open; hiding the tab suspends
+  all sound and flushes the save immediately.
 
-- `data/global9-bank.json` — **275 items, 55 topics** (Regents-style).
-- `data/enl-glossary-global9.json` — **244 trilingual terms** (EN / 中文 +
-  pinyin / ES + simple-English definitions) in 9 categories, for the in-world
-  ENL glossary.
-- `data/appsych-bank.json` — **175 items, 35 topics**, **2024-CED-clean**:
-  `scripts/build-banks.py` hard-fails if excluded content (Maslow's hierarchy,
-  Kohlberg, Gardner, psychosexual stages, the three named emotion theories)
-  appears as testable. Humanistic psychology is correctly kept.
-- `data/world-content.json` — unit blurbs/terms, AAQ/EBQ/CRQ/Enduring-Issues
-  tasks with rubrics and model answers, aligned to the real NYS framework and
-  AP CED.
-- Region stations filter the banks by **exact topic strings**, so unit practice
-  stays on-unit.
+## Teacher notes
 
----
+- **Saves are per-device `localStorage`** (`mmw-game-<world>-v1`). No
+  accounts, no sync, nothing typed ever leaves the browser. A student gets
+  meaningful progress in an 8-minute session and resumes instantly.
+- **New Game** on a hub card erases that world's save on that device (with a
+  confirm). Clearing browser site-data does the same.
+- The site is fully static; after the first load only the three.js CDN files
+  are remote. There is no service worker, so a true cold offline start is not
+  guaranteed — but everything course-related is local JSON.
+- **De-identified by design**: no student or colleague names anywhere; the
+  only name on the site is the footer's "Mr. Maccarello".
+- ENL support also exists *inside* Trade Winds (HUD glossary + read-aloud on
+  every question) for mixed-section play; Word Harbor is the dedicated,
+  kinder-tuned ENL world.
+
+## Engine (shared by all three)
+
+Deterministic worlds from fixed seeds (mulberry32 + seeded value-noise /
+fBm / ridged multifractal): same mountains, same roads, same landmarks for
+every student on every device — the hub card maps are painted at runtime from
+the *same* height fields as proof. Chunked vertex-colored terrain, analytic
+terrain collision (no physics engine), animated water with shore foam, sky
+dome shader with a slow day drift, instanced flora, procedural landmark
+architecture (ziggurats to lighthouses), procedural low-poly NPCs with
+transform-based animation, one pooled particle system, synthesized WebAudio
+SFX (zero audio assets), and a strict **≤120 draw-call budget** per world
+(pixel-ratio clamp + auto-degrade keep Chromebooks at 60 fps).
+
+## Content provenance
+
+All practice content is real and vetted — nothing invented:
+
+- `data/global9-bank.json` — 275 Regents-style items, 55 topics.
+- `data/appsych-bank.json` — 175 items, 35 topics, 2024-CED-clean (scope
+  gate in `scripts/build-banks.py`).
+- `data/enl-glossary-global9.json` — 244 trilingual terms in 9 categories.
+- `data/world-content.json` — unit key ideas + AAQ/EBQ/CRQ/Enduring-Issues
+  tasks with rubrics and model answers, aligned to the NYS framework and AP CED.
+- Trade Winds' goods, prices, routes, figures and events; Mind Atlas' puzzle
+  answers and wraith refutations; Word Harbor's story lines — all checked
+  against the historical / psychological record (see `docs/GAME_DESIGN.md`,
+  "honest pedagogy" pillar).
 
 ## Repository structure
 
 ```
-index.html                 # hub — world cards w/ live seeded map thumbnails (no WebGL)
-world.html                 # the 3D world page (?w=global9 | ?w=appsych)
-css/hub.css                # hub styling
-css/styles.css             # HUD, panels, touch controls, loading, fallback
+index.html                 # hub title screen (animated 2D backdrop, live save progress)
+world.html                 # the 3D world page (?w=global9 | ?w=appsych | ?w=enl)
+docs/GAME_DESIGN.md        # v3 design document (pillars + per-world specs)
+css/hub.css | styles.css | game.css
 js/
-  core/
-    prng.js                # mulberry32 + FNV-1a hash + labeled sub-seeds
-    noise.js               # seeded value noise, fBm, ridged multifractal
-    field-utils.js         # masks, polyline distance, color mixing (pure math)
-  engine/
-    engine.js              # boot + frame loop + quality/degrade + interactions
-    terrain.js             # chunked heightmap mesh, analytic normals, vertex colors
-    sky.js                 # gradient dome shader, sun, clouds, day drift, fog
-    water.js               # animated water plane w/ shore foam
-    scatter.js             # seeded instanced flora per biome
-    structures.js          # procedural landmark architecture (17 builders)
-    stations.js            # placement, prompts, rings, beacon, cleared glow
-    player.js              # avatar + chase cam + terrain-following controller
-    hud.js                 # compass, minimap, quest log, prompt, settings
-    geo-kit.js             # bake vertex-colored parts into one geometry; canvas labels
-    audio.js               # tiny WebAudio chimes (no assets)
-  learn/
-    content-loader.js      # fetch/cache JSON, unit-filtered question draw
-    panels.js              # Learn/Practice station, MCQ runner, FRQ/CRQ/EI overlays
-    progress.js            # XP, per-unit mastery, settings (localStorage)
-  worlds/
-    trade-winds.js         # Global 9 world definition (layout, biomes, field, flora)
-    mind-atlas.js          # AP Psych world definition
-  main-hub.js              # hub bootstrap (paints real maps from the world fields)
+  core/                    # prng, seeded noise, field math
+  engine/                  # terrain, sky, water, scatter, structures, stations,
+                           # player, HUD, audio, geo-kit, frame loop
+  learn/                   # banks loader, station panels, glossary, read-aloud, progress
+  game/                    # shared game systems: save slots, economy, XP/perks,
+                           # quests, NPCs, particles, SFX synth, dialogue, vendor,
+                           # guild exams, trade map, game HUD, overlay stack
+  game/worlds/
+    trade-winds/           # content DB + game controller (Global 9)
+    mind-atlas/            # content, puzzles, wraiths, case files, trial (AP Psych)
+    word-harbor/           # content, bridges, festivals, picture book, TTS (ENL)
+  worlds/                  # per-world terrain/biome/station definitions
+  main-hub.js              # title screen: backdrop, map thumbnails, save progress
   main-world.js            # world bootstrap (loading screen, WebGL check)
-data/                      # question banks + world content (see provenance above)
+data/                      # question banks + glossary + world content
 scripts/build-banks.py     # regenerates bank JSONs + AP scope gate
-.nojekyll                  # serve js/ and _-files verbatim on Pages
+verify-w5.mjs              # ship gate: hub + all three games, headless (playwright)
+verify-wh.mjs              # Word Harbor full-loop verification (Wave 4)
 ```
-
----
-
-## Adding another world
-
-1. Write `js/worlds/<key>.js` exporting a `def` — copy the shape of
-   `trade-winds.js`: seed, size, sky/water/light palette, `regions` (with bank
-   topic lists), `skills`, `order`, `paths`, `flora` rules, and a `buildField()`
-   that returns `{ height, color, probe, pathD }`.
-2. Register it in `js/main-world.js` (`WORLDS`) and add a card in `index.html`
-   + `js/main-hub.js`.
-3. Add bank/topic data to `data/` and a node entry per region to
-   `data/world-content.json`.
-
-The engine (terrain, water, sky, scatter, stations, player, HUD, panels,
-progress) is fully shared.
-
----
 
 ## Run locally
 
@@ -194,6 +154,14 @@ ES modules + `fetch` need HTTP (not `file://`):
 ```bash
 python3 -m http.server 8848
 # open http://localhost:8848/
+```
+
+Verification (headless Chromium, plays each game's core loop, checks draw
+calls, mobile layout, save integrity, console errors):
+
+```bash
+node verify-w5.mjs /path/to/repo                 # local
+node verify-w5.mjs /path/to/repo https://<pages-url>  # live
 ```
 
 ---

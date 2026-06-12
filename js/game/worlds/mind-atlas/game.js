@@ -452,11 +452,45 @@ export async function initGame(api) {
     chime: Audio.chime,
   });
 
+  // ---------- region ambience ----------
+  // Standing inside a region tints the hemisphere light toward its palette
+  // (a cheap whole-scene filter) and keys the particle bursts to the same
+  // hue — Neural Caverns sparkle cyan, Social Plaza crimson, and so on.
+  let hemiLight = null;
+  scene.traverse(o => { if (o.isHemisphereLight) hemiLight = o; });
+  const hemiBase = hemiLight ? hemiLight.color.clone() : null;
+  const hemiGoal = new THREE.Color();
+  const regionTint = new THREE.Color();
+  let ambRegion = null;
+
+  function updateAmbience(dt, frame) {
+    if (frame % 12 === 0) {
+      let found = null;
+      for (const r of def.regions) {
+        const dx = player.pos.x - r.center[0], dz = player.pos.z - r.center[1];
+        if (dx * dx + dz * dz < (r.r * 1.15) * (r.r * 1.15)) { found = r; break; }
+      }
+      if (found !== ambRegion) {
+        ambRegion = found;
+        particles.setPalette(found ? found.color : null);
+      }
+    }
+    if (!hemiLight) return;
+    if (ambRegion) {
+      regionTint.set(ambRegion.color);
+      hemiGoal.copy(hemiBase).lerp(regionTint, 0.3);
+    } else {
+      hemiGoal.copy(hemiBase);
+    }
+    hemiLight.color.lerp(hemiGoal, Math.min(1, dt * 1.6));
+  }
+
   // ---------- frame loop ----------
   let stepT = 0, saveT = 0;
-  api.onFrame((dt, t) => {
+  api.onFrame((dt, t, frame) => {
     npcSys.update(dt, t, player.pos);
     particles.update(dt);
+    updateAmbience(dt, frame);
 
     // confidence slowly recovers as you walk the mind
     if (!api.isPaused() && S.confidence < MAXCONF) {

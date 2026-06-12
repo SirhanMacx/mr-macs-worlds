@@ -63,7 +63,7 @@ async function promptAt(x, z, expectRe, clickIt = true) {
 // ============ 1. HUB ============
 await page.goto(base + "/index.html", { waitUntil: "networkidle" });
 ok(await page.$("#card-enl") !== null, "hub has the Word Harbor card");
-const enlDesc = await page.textContent("#card-enl .card-desc");
+const enlDesc = await page.textContent("#card-enl .card-body"); // W5 hub: course label + hook
 ok(/word-gems/i.test(enlDesc) && /中文/.test(enlDesc) && /Español/.test(enlDesc), "card copy: word-gems + trilingual");
 await sleep(1200); // map thumbnails paint
 const painted = await page.$$eval(".card-map canvas.painted", e => e.length);

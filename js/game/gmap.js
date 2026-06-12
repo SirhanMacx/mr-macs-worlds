@@ -63,6 +63,7 @@ export function createGameMap({ def, field, cities, paths, getEra, getQuestTarge
   const toMap = (x, z, S) => [(x / def.size + 0.5) * S, (z / def.size + 0.5) * S];
 
   function open() {
+    let raf = 0;
     UI.push({
       className: 'gui-map',
       html: `
@@ -83,12 +84,22 @@ export function createGameMap({ def, field, cities, paths, getEra, getQuestTarge
         cv.style.width = S + 'px'; cv.style.height = S + 'px';
         const x = cv.getContext('2d');
         x.setTransform(dpr, 0, 0, dpr, 0, 0);
-        draw(x, S, el);
+        // live map: the fog of the unexplored eras drifts while you study it
+        // (and the player arrow stays current). ~24fps is plenty.
+        let last = 0;
+        const loop = (ms) => {
+          raf = requestAnimationFrame(loop);
+          if (ms - last < 42) return;
+          last = ms;
+          draw(x, S, el, ms / 1000);
+        };
+        raf = requestAnimationFrame(loop);
       },
+      onClose() { cancelAnimationFrame(raf); },
     });
   }
 
-  function draw(x, S, el) {
+  function draw(x, S, el, t = 0) {
     const era = getEra();
     x.fillStyle = '#0c1020';
     x.fillRect(0, 0, S, S);
@@ -109,11 +120,16 @@ export function createGameMap({ def, field, cities, paths, getEra, getQuestTarge
     }
     x.restore();
 
-    // fog over locked-era city regions
+    // fog over locked-era city regions — the blobs drift and breathe slowly,
+    // like weather sitting on roads you cannot read yet
+    let fogI = 0;
     for (const c of cities) {
       if (c.era <= era) continue;
-      const [mx, my] = toMap(c.x, c.z, S);
-      const R = S * 0.16;
+      const i = fogI++;
+      let [mx, my] = toMap(c.x, c.z, S);
+      mx += Math.sin(t * 0.31 + i * 2.1) * S * 0.013;
+      my += Math.cos(t * 0.23 + i * 1.4) * S * 0.01;
+      const R = S * (0.16 + 0.012 * Math.sin(t * 0.42 + i * 2.8));
       const g = x.createRadialGradient(mx, my, R * 0.15, mx, my, R);
       g.addColorStop(0, 'rgba(52,60,86,0.88)');
       g.addColorStop(0.7, 'rgba(52,60,86,0.72)');
@@ -158,6 +174,9 @@ export function createGameMap({ def, field, cities, paths, getEra, getQuestTarge
     x.strokeStyle = '#1b2a4a'; x.lineWidth = 1.6; x.stroke();
     x.restore();
 
+    // static chrome: only write the era line + legend once per open
+    if (el._mapMetaDone) return;
+    el._mapMetaDone = true;
     const eraEl = el.querySelector('#map-era');
     if (eraEl) eraEl.textContent = `Era ${era} of 4 — fog hides the roads your license does not yet cover`;
     const leg = el.querySelector('#map-legend');

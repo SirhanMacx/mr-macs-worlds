@@ -57,6 +57,16 @@ export function createParticles(scene) {
   }
 
   const C = new THREE.Color();
+  // optional world-set palette: when a region/biome sets a tint, sparkle and
+  // confetti bursts draw their hues from it instead of the gold default
+  let palette = null;       // { h, s, l } or null
+  const PC = new THREE.Color();
+  function setPalette(hex) {
+    if (hex == null) { palette = null; return; }
+    PC.set(hex);
+    palette = PC.getHSL({ h: 0, s: 0, l: 0 });
+  }
+
   function burst(kind, x, y, z, n = 14) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -67,7 +77,8 @@ export function createParticles(scene) {
           spawn(x, y + 1, z, Math.cos(a) * sp, 3 + Math.random() * 3.5, Math.sin(a) * sp, C.r, C.g, C.b, 0.55 + Math.random() * 0.3, 0.8 + Math.random() * 0.4, -9, 0.9);
           break;
         case 'sparkle':
-          C.setHSL(0.12 + Math.random() * 0.1, 0.9, 0.7);
+          if (palette) C.setHSL(palette.h + (Math.random() - 0.5) * 0.06, Math.min(1, palette.s * 0.9 + 0.1), 0.6 + Math.random() * 0.2);
+          else C.setHSL(0.12 + Math.random() * 0.1, 0.9, 0.7);
           spawn(x + (Math.random() - 0.5) * 1.4, y + 0.6 + Math.random() * 1.8, z + (Math.random() - 0.5) * 1.4,
             Math.cos(a) * 0.5, 0.8 + Math.random() * 1.4, Math.sin(a) * 0.5, C.r, C.g, C.b, 0.4 + Math.random() * 0.3, 1 + Math.random() * 0.7, 0.4, 0.96);
           break;
@@ -77,7 +88,8 @@ export function createParticles(scene) {
             Math.cos(a) * 0.7, 0.5 + Math.random() * 0.7, Math.sin(a) * 0.7, C.r, C.g, C.b, 0.45 + Math.random() * 0.3, 0.45 + Math.random() * 0.25, 0.5, 0.9);
           break;
         case 'confetti':
-          C.setHSL(Math.random(), 0.85, 0.62);
+          if (palette && Math.random() < 0.6) C.setHSL(palette.h + (Math.random() - 0.5) * 0.14, 0.85, 0.55 + Math.random() * 0.2);
+          else C.setHSL(Math.random(), 0.85, 0.62);
           spawn(x + (Math.random() - 0.5) * 2, y + 2.2 + Math.random() * 1.5, z + (Math.random() - 0.5) * 2,
             Math.cos(a) * 2, 2 + Math.random() * 4, Math.sin(a) * 2, C.r, C.g, C.b, 0.5 + Math.random() * 0.35, 1.4 + Math.random() * 0.8, -4.5, 0.94);
           break;
@@ -113,7 +125,7 @@ export function createParticles(scene) {
     points.visible = any;
   }
 
-  return { burst, update };
+  return { burst, update, setPalette };
 }
 
 function dotTexture() {

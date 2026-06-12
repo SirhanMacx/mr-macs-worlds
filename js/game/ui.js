@@ -69,13 +69,21 @@ function popTo(entry) {
 
 export function closeAll() { while (stack.length) pop(); }
 
-// floating "+12" style feedback chip near screen center
+// floating "+12" style feedback chip near screen center. Same-frame bursts
+// (a 3-item sell = coins + XP + quest tick) take consecutive slots in an
+// offset queue so the labels stack readably instead of overprinting.
+const floatSlots = [];
 export function floatText(text, kind = 'gain') {
   const f = document.createElement('div');
   f.className = `gui-float ${kind}`;
   f.textContent = text;
+  let slot = 0;
+  while (floatSlots[slot]) slot++;
+  floatSlots[slot] = true;
+  f.style.marginTop = `${slot * 26}px`;
   rootEl.appendChild(f);
   requestAnimationFrame(() => f.classList.add('go'));
+  setTimeout(() => { floatSlots[slot] = false; }, 650); // slot frees once it floats clear
   setTimeout(() => f.remove(), 1400);
 }
 
