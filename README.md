@@ -1,6 +1,18 @@
 # Mr. Mac's Worlds
 
-A **seeded, procedurally generated, open-world 3D learning environment**.
+A **seeded, procedurally generated, open-world 3D learning environment** —
+and, as of v3, a **real game**. The Global 9 world is now **TRADE WINDS**, a
+trading-empire game spanning 4,500 years: 9 real cities with live markets and
+historically true price spreads, quest chains given by real figures (Hammurabi's
+envoy, Herodotus, Ashoka's missionary, Zhang Qian, Mansa Musa, Ibn Battuta,
+Zheng He, Lorenzo de' Medici), travel events on the real routes (monsoon
+timing, Sahara night-travel, caravanserai tolls, quarantine) with in-game
+consequences, ranked Guild Exams built from the 275-question Regents bank, era
+progression with fog-of-war (River Valleys → Classical → Post-Classical →
+First Global Age), XP/levels/perks, caravan upgrades, a pack animal at your
+heels, synthesized SFX and particles — all procedural, all static, saves in
+localStorage. Design doc: `docs/GAME_DESIGN.md`. Shared game systems live in
+`js/game/` and are reused by later worlds.
 Students free-roam two living continents, walk up to landmark **learning
 stations**, and master real exam skills — AP Psychology (2024 CED) and the NYS
 Global History & Geography 9 path. The Trade Winds World serves **both Global 9

@@ -123,16 +123,31 @@ export function buildStations(scene, field, def) {
     if (st) { manualTarget = st; setBeacon(st); }
   }
 
+  // ---- extra interactables (game layer: NPCs, markets, pickups) ----
+  // {id, pos:Vector3, label, interactR, type, verb?, onInteract, hidden?}
+  const extras = [];
+  function addExtra(obj) { extras.push(obj); return obj; }
+  function removeExtra(obj) { const i = extras.indexOf(obj); if (i >= 0) extras.splice(i, 1); }
+
   // ---- per-frame ----
   const v = new THREE.Vector3();
   function update(t, playerPos, camPos) {
-    // nearest in interact range
+    // nearest in interact range — extras first (they sit inside city flats)
     let near = null, nd = Infinity;
-    for (const st of list) {
-      const d = playerPos.distanceTo(st.pos);
-      if (d < nd) { nd = d; near = st; }
+    for (const ex of extras) {
+      if (ex.hidden) continue;
+      const d = playerPos.distanceTo(ex.pos);
+      if (d < ex.interactR && d < nd) { nd = d; near = ex; }
     }
-    const active = near && nd < near.interactR ? near : null;
+    if (!near) {
+      nd = Infinity;
+      for (const st of list) {
+        const d = playerPos.distanceTo(st.pos);
+        if (d < nd) { nd = d; near = st; }
+      }
+      if (!(near && nd < near.interactR)) near = null;
+    }
+    const active = near;
 
     // rings pulse on the active one
     list.forEach((st, i) => {
@@ -163,7 +178,7 @@ export function buildStations(scene, field, def) {
   refreshVisuals();
 
   return {
-    list, update, refreshVisuals, guideTo, retarget,
+    list, update, refreshVisuals, guideTo, retarget, addExtra, removeExtra, setBeacon,
     get beaconTarget() { return beaconTarget; },
     clearedOf,
   };

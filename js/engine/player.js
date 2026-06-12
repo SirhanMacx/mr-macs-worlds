@@ -276,7 +276,7 @@ export class Player {
     const dirX = -sin * mz + cos * mx;
     const dirZ = -cos * mz - sin * mx;
 
-    const baseSpeed = run ? 13.5 : 7;
+    const baseSpeed = (run ? 13.5 : 7) * (this.speedMul || 1);
     let target = Math.hypot(dirX, dirZ) > 0.01 ? baseSpeed : 0;
 
     // uphill slope damping (sampled along motion)

@@ -1,0 +1,268 @@
+/* game.css — TRADE WINDS game layer UI: trade bar, dialogue, market, events,
+   map, journal, guild, banners. Dark parchment-and-brass look, touch-sized
+   targets, zero emoji. */
+
+/* ---------- overlay stack ---------- */
+#game-ui { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+.gui-layer {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 8, 16, 0.55); opacity: 0; transition: opacity 0.18s ease;
+  pointer-events: auto; padding: 14px;
+}
+.gui-layer.in { opacity: 1; }
+
+/* ---------- floating feedback ---------- */
+.gui-float {
+  position: absolute; left: 50%; top: 46%; transform: translate(-50%, 0);
+  font: 800 20px/1 system-ui, sans-serif; pointer-events: none; opacity: 0;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7); z-index: 75; white-space: nowrap;
+}
+.gui-float.gain { color: #ffd166; }
+.gui-float.loss { color: #ff8585; }
+.gui-float.xp { color: #8be9fd; font-size: 16px; }
+.gui-float.warn { color: #ffb347; font-size: 16px; }
+.gui-float.go { animation: floatUp 1.35s ease-out forwards; }
+@keyframes floatUp {
+  0% { opacity: 0; transform: translate(-50%, 12px); }
+  12% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -58px); }
+}
+
+/* ---------- banner ---------- */
+.gui-banner {
+  position: absolute; left: 50%; top: 18%; transform: translate(-50%, -16px) scale(0.96);
+  background: linear-gradient(180deg, rgba(26,20,10,0.96), rgba(16,12,6,0.96));
+  border: 1px solid rgba(255,210,130,0.55); border-radius: 12px;
+  padding: 14px 26px; text-align: center; max-width: min(560px, 90vw);
+  opacity: 0; transition: all 0.35s cubic-bezier(0.2, 1.4, 0.4, 1); z-index: 80; pointer-events: none;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+.gui-banner.in { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.gui-banner .gb-title { font: 800 20px/1.2 Georgia, serif; color: #ffd166; letter-spacing: 0.04em; }
+.gui-banner .gb-sub { font: 500 13px/1.45 system-ui; color: #e8dfc8; margin-top: 6px; }
+
+/* ---------- trade bar ---------- */
+#trade-bar {
+  position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%);
+  display: flex; gap: 8px; align-items: stretch; z-index: 55;
+  background: rgba(10, 13, 24, 0.78); border: 1px solid rgba(120,140,190,0.25);
+  border-radius: 12px; padding: 7px 10px; backdrop-filter: blur(6px);
+  font: 600 13px/1 system-ui; color: #dfe6f5; flex-wrap: wrap; justify-content: center;
+  max-width: 96vw;
+}
+.tb-block { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 8px; background: rgba(255,255,255,0.05); }
+.tb-lab { font-size: 10px; opacity: 0.6; letter-spacing: 0.08em; }
+.tb-coins b { color: #ffd166; font-size: 15px; }
+.tb-coin-dot { width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe9a0, #c8951e); box-shadow: 0 0 6px rgba(255,209,102,0.6); }
+.tb-block.pulse { animation: coinPulse 0.45s ease; }
+@keyframes coinPulse { 0% { transform: scale(1); } 35% { transform: scale(1.14); background: rgba(255,209,102,0.25); } 100% { transform: scale(1); } }
+.tb-rank b { color: #c9a4ff; }
+.tb-era b { color: #ffb86c; }
+.tb-eraname { font-size: 11px; opacity: 0.65; }
+.tb-xpbar { width: 64px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.tb-xpbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4aa8ff, #8be9fd); transition: width 0.4s ease; }
+.tb-pts { color: #7df29b; font-size: 11px; font-weight: 800; animation: ptsBlink 1.6s ease infinite; }
+@keyframes ptsBlink { 50% { opacity: 0.45; } }
+.tb-btn {
+  border: 1px solid rgba(255,210,130,0.4); background: rgba(255,209,102,0.1); color: #ffd166;
+  font: 800 12px/1 system-ui; letter-spacing: 0.06em; border-radius: 8px; padding: 0 12px; cursor: pointer;
+  min-height: 30px;
+}
+.tb-btn:hover { background: rgba(255,209,102,0.22); }
+
+/* ---------- quest tracker ---------- */
+#quest-tracker {
+  position: fixed; right: 12px; top: 64px; z-index: 54; max-width: min(290px, 70vw);
+  background: rgba(10, 13, 24, 0.78); border: 1px solid rgba(255,210,130,0.35);
+  border-left: 3px solid #ffd166; border-radius: 10px; padding: 9px 12px;
+  text-align: left; cursor: pointer; backdrop-filter: blur(6px);
+}
+#quest-tracker .qt-name { display: block; font: 800 12px/1.2 system-ui; color: #ffd166; letter-spacing: 0.03em; }
+#quest-tracker .qt-obj { display: block; font: 500 12px/1.35 system-ui; color: #e3e9f7; margin-top: 3px; }
+
+/* ---------- shared card chrome ---------- */
+.dlg-card, .mkt-card, .evt-card, .map-card, .jrn-card, .gld-card, .intro-card {
+  background: linear-gradient(180deg, rgba(22,18,12,0.97), rgba(13,11,8,0.97));
+  border: 1px solid rgba(255,210,130,0.4); border-radius: 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.65);
+  color: #ece4d2; width: min(640px, 96vw); max-height: 88vh; overflow: auto;
+  padding: 18px;
+}
+.dlg-x {
+  border: 1px solid rgba(255,210,130,0.4); background: transparent; color: #ffd166;
+  font: 800 11px/1 system-ui; letter-spacing: 0.08em; border-radius: 7px; padding: 7px 10px; cursor: pointer;
+  flex: none; height: fit-content;
+}
+.dlg-x:hover { background: rgba(255,209,102,0.15); }
+
+/* ---------- dialogue ---------- */
+.dlg-head { display: flex; gap: 14px; align-items: center; }
+.dlg-portrait { width: 64px; height: 64px; border-radius: 10px; flex: none; }
+.dlg-who { flex: 1; }
+.dlg-name { font: 800 19px/1.15 Georgia, serif; color: #ffd166; }
+.dlg-title { font: 600 12px/1.3 system-ui; color: #bfae8c; margin-top: 2px; }
+.dlg-text { font: 500 15px/1.6 Georgia, serif; margin: 14px 2px; min-height: 70px; white-space: pre-line; }
+.dlg-choices { display: flex; flex-direction: column; gap: 8px; }
+.dlg-choice {
+  text-align: left; border: 1px solid rgba(255,210,130,0.3); background: rgba(255,209,102,0.07);
+  color: #ffe9c0; font: 600 14px/1.35 system-ui; border-radius: 9px; padding: 11px 13px; cursor: pointer;
+}
+.dlg-choice:hover { background: rgba(255,209,102,0.18); border-color: rgba(255,210,130,0.6); }
+
+/* ---------- market ---------- */
+.mkt-card { width: min(760px, 96vw); }
+.mkt-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.mkt-city { font: 800 20px/1.15 Georgia, serif; color: #ffd166; }
+.mkt-sub { font: 600 12px/1.3 system-ui; color: #bfae8c; margin-top: 3px; }
+.mkt-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.mkt-coins { color: #ffd166; font: 800 16px/1 system-ui; }
+.mkt-coins i { font: 600 11px/1 system-ui; color: #bfae8c; }
+.mkt-cap { font: 700 12px/1 system-ui; color: #9fc1ff; background: rgba(120,160,255,0.1); border-radius: 6px; padding: 5px 8px; }
+.mkt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+@media (max-width: 640px) { .mkt-cols { grid-template-columns: 1fr; } }
+.mkt-col h3 { font: 800 12px/1 system-ui; letter-spacing: 0.1em; color: #bfae8c; margin: 0 0 8px; text-transform: uppercase; }
+.mkt-rows { display: flex; flex-direction: column; gap: 6px; }
+.mkt-row {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 9px; padding: 8px 10px;
+}
+.mkt-row.mkt-flat { opacity: 0.75; }
+.mkt-good { flex: 1; min-width: 0; }
+.mkt-good b { font: 700 14px/1.2 system-ui; color: #f4ecd8; }
+.mkt-n { color: #9fc1ff; font: 700 12px/1 system-ui; margin-left: 4px; }
+.mkt-fact { display: block; font: 500 11px/1.35 system-ui; color: #a89a7e; margin-top: 2px; }
+.mkt-spread { display: block; font: 700 11px/1.3 system-ui; color: #8be9fd; margin-top: 2px; }
+.mkt-price { font: 800 16px/1 system-ui; color: #ffd166; flex: none; min-width: 34px; text-align: right; }
+.mkt-btns { display: flex; gap: 5px; flex: none; }
+.mkt-btns button {
+  border: 1px solid rgba(125,242,155,0.45); background: rgba(125,242,155,0.1); color: #7df29b;
+  font: 800 11px/1 system-ui; border-radius: 7px; padding: 9px 10px; cursor: pointer; min-width: 44px;
+}
+.mkt-btns button:hover { background: rgba(125,242,155,0.22); }
+#mkt-sell .mkt-btns button { border-color: rgba(255,209,102,0.45); background: rgba(255,209,102,0.1); color: #ffd166; }
+#mkt-sell .mkt-btns button:hover { background: rgba(255,209,102,0.22); }
+.mkt-empty { font: 500 12px/1.5 system-ui; color: #a89a7e; }
+.mkt-foot { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mkt-story, .intro-go, .gld-start {
+  border: 1px solid rgba(139,233,253,0.45); background: rgba(139,233,253,0.1); color: #8be9fd;
+  font: 800 13px/1 system-ui; letter-spacing: 0.05em; border-radius: 9px; padding: 12px 16px; cursor: pointer;
+}
+.mkt-story:hover, .intro-go:hover, .gld-start:hover { background: rgba(139,233,253,0.2); }
+.mkt-home { font: 500 12px/1.4 system-ui; color: #a89a7e; }
+
+/* ---------- travel events ---------- */
+.evt-card { width: min(540px, 96vw); border-color: rgba(255,170,90,0.55); }
+.evt-kicker { font: 800 11px/1 system-ui; letter-spacing: 0.14em; color: #ffb86c; }
+.evt-kicker.good { color: #7df29b; }
+.evt-kicker.bad { color: #ff8585; }
+.evt-title { font: 800 21px/1.2 Georgia, serif; color: #ffe9c0; margin: 8px 0 10px; }
+.evt-body { font: 500 14.5px/1.6 Georgia, serif; color: #ece4d2; margin: 0 0 14px; }
+.evt-why { font: 600 12.5px/1.5 system-ui; color: #8be9fd; background: rgba(139,233,253,0.07); border-left: 3px solid #8be9fd; border-radius: 6px; padding: 9px 11px; margin: 0 0 14px; }
+.evt-choices { display: flex; flex-direction: column; gap: 8px; }
+.evt-choice {
+  text-align: left; border: 1px solid rgba(255,184,108,0.4); background: rgba(255,184,108,0.07);
+  color: #ffe9c0; border-radius: 9px; padding: 11px 13px; cursor: pointer; font: 600 14px/1.35 system-ui;
+}
+.evt-choice:hover { background: rgba(255,184,108,0.16); }
+.evt-choice b { display: block; }
+.evt-choice span { display: block; font: 600 11.5px/1.3 system-ui; color: #8be9fd; margin-top: 3px; }
+.evt-go { text-align: center; border-color: rgba(125,242,155,0.5); color: #7df29b; }
+
+/* ---------- map ---------- */
+.map-card { width: auto; }
+.map-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.map-title { font: 800 19px/1.15 Georgia, serif; color: #ffd166; }
+.map-sub { font: 600 11.5px/1.3 system-ui; color: #bfae8c; margin-top: 3px; }
+#map-canvas { border-radius: 10px; border: 1px solid rgba(255,210,130,0.3); display: block; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.map-chip { display: inline-flex; align-items: center; gap: 5px; font: 600 11px/1 system-ui; color: #e3d9c2; background: rgba(255,255,255,0.06); border-radius: 6px; padding: 5px 8px; }
+.map-chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.map-chip.locked { color: #8a93ad; }
+
+/* ---------- journal ---------- */
+.jrn-card { width: min(620px, 96vw); }
+.jrn-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.jrn-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.jrn-tab {
+  border: 1px solid rgba(255,210,130,0.3); background: transparent; color: #bfae8c;
+  font: 800 12px/1 system-ui; letter-spacing: 0.06em; border-radius: 8px; padding: 9px 12px; cursor: pointer;
+}
+.jrn-tab.on { background: rgba(255,209,102,0.16); color: #ffd166; border-color: rgba(255,210,130,0.6); }
+.jrn-body h3 { font: 800 11px/1 system-ui; letter-spacing: 0.12em; color: #bfae8c; text-transform: uppercase; margin: 14px 0 8px; }
+.jrn-q { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.08); border-radius: 9px; padding: 10px 12px; margin-bottom: 7px; }
+.jrn-q.active { border-left: 3px solid #ffd166; }
+.jrn-q.avail { border-left: 3px solid #8be9fd; }
+.jrn-q.done { opacity: 0.55; border-left: 3px solid #7df29b; }
+.jrn-q b { display: block; font: 700 14px/1.25 system-ui; color: #f4ecd8; }
+.jrn-q span { display: block; font: 500 12.5px/1.45 system-ui; color: #cabfa5; margin-top: 3px; }
+.jrn-q i { display: block; font: 600 11.5px/1.3 system-ui; color: #8be9fd; margin-top: 4px; font-style: normal; }
+.jrn-empty, .jrn-tip { font: 500 13px/1.5 system-ui; color: #a89a7e; }
+.jrn-perk { display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.08); border-radius: 9px; padding: 10px 12px; margin-bottom: 7px; }
+.jrn-perk.maxed { border-color: rgba(125,242,155,0.4); }
+.jrn-perk > div { flex: 1; }
+.jrn-perk b { font: 700 14px/1.25 system-ui; color: #f4ecd8; }
+.jrn-rank { font: 700 11px/1 system-ui; color: #c9a4ff; margin-left: 6px; }
+.jrn-perk span { display: block; font: 500 12px/1.45 system-ui; color: #cabfa5; margin-top: 3px; }
+.jrn-perk button {
+  border: 1px solid rgba(125,242,155,0.45); background: rgba(125,242,155,0.1); color: #7df29b;
+  font: 800 11px/1 system-ui; border-radius: 7px; padding: 10px 12px; cursor: pointer; flex: none;
+}
+.jrn-perk button:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- guild ---------- */
+.gld-card { width: min(640px, 96vw); }
+.gld-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+.gld-title { font: 800 20px/1.2 Georgia, serif; color: #ffd166; }
+.gld-sub { font: 600 12.5px/1.45 system-ui; color: #bfae8c; margin-top: 4px; }
+.gld-ladder { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.gld-rung { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 9px 12px; }
+.gld-rung b { font: 700 13.5px/1.2 system-ui; color: #cabfa5; }
+.gld-rung span { display: block; font: 500 11.5px/1.4 system-ui; color: #98917e; margin-top: 2px; }
+.gld-rung.won { border-left: 3px solid #7df29b; }
+.gld-rung.won b { color: #7df29b; }
+.gld-rung.next { border-left: 3px solid #ffd166; background: rgba(255,209,102,0.07); }
+.gld-rung.next b { color: #ffd166; }
+.gld-actions { display: flex; justify-content: center; }
+.gld-doneall { font: 600 13px/1.5 system-ui; color: #7df29b; }
+.gld-q { font: 500 15px/1.6 Georgia, serif; color: #ece4d2; margin: 6px 0 14px; }
+.gld-choices { display: flex; flex-direction: column; gap: 8px; }
+.gld-choice {
+  text-align: left; border: 1px solid rgba(255,210,130,0.3); background: rgba(255,209,102,0.06);
+  color: #ffe9c0; font: 600 14px/1.4 system-ui; border-radius: 9px; padding: 11px 13px; cursor: pointer;
+}
+.gld-choice:hover:not(:disabled) { background: rgba(255,209,102,0.16); }
+.gld-choice.right { border-color: #7df29b; color: #7df29b; background: rgba(125,242,155,0.1); }
+.gld-choice.wrong { border-color: #ff8585; color: #ff8585; background: rgba(255,133,133,0.08); }
+.gld-fb { margin-top: 12px; font: 500 13px/1.55 system-ui; border-radius: 8px; padding: 11px 13px; }
+.gld-fb.good { background: rgba(125,242,155,0.08); border-left: 3px solid #7df29b; color: #d7f5dd; }
+.gld-fb.bad { background: rgba(255,133,133,0.07); border-left: 3px solid #ff8585; color: #f5dada; }
+.gld-fb b { display: block; margin-bottom: 4px; }
+.gld-next { display: block; margin-top: 10px; border: 1px solid rgba(139,233,253,0.45); background: rgba(139,233,253,0.1); color: #8be9fd; font: 800 12px/1 system-ui; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+
+/* ---------- intro ---------- */
+.intro-card { width: min(560px, 96vw); text-align: center; }
+.intro-kicker { font: 800 12px/1 system-ui; letter-spacing: 0.3em; color: #ffb86c; }
+.intro-card h2 { font: 800 25px/1.25 Georgia, serif; color: #ffd166; margin: 10px 0 14px; }
+.intro-card p { font: 500 14px/1.65 Georgia, serif; color: #ece4d2; margin: 0 0 12px; text-align: left; }
+.intro-keys { font: 600 12px/1.5 system-ui !important; color: #8be9fd !important; background: rgba(139,233,253,0.07); border-radius: 8px; padding: 9px 11px; }
+.intro-go { width: 100%; padding: 14px; }
+
+/* while a game overlay is open, fade the world chrome out of the way */
+body.gui-open #trade-bar, body.gui-open #quest-tracker, body.gui-open #hud, body.gui-open #touch-ui {
+  opacity: 0.12; pointer-events: none; transition: opacity 0.2s ease;
+}
+
+/* mobile: keep the trade bar above the joystick, and lift the interact
+   prompt clear of the trade bar so taps always land */
+@media (pointer: coarse) {
+  #trade-bar { bottom: max(10px, env(safe-area-inset-bottom)); left: 50%; font-size: 12px; gap: 5px; padding: 5px 7px; }
+  .tb-eraname { display: none; }
+  #quest-tracker { top: 56px; }
+  .prompt { bottom: calc(170px + env(safe-area-inset-bottom)) !important; z-index: 58; }
+}
+/* narrow desktop windows can wrap the trade bar too — keep the prompt clear */
+@media (max-width: 760px) {
+  .prompt { bottom: calc(170px + env(safe-area-inset-bottom)); z-index: 58; }
+}

@@ -44,6 +44,14 @@ async function boot() {
       },
     });
     window.MMW = engine; // smoke-test / debug hook
+
+    // Worlds that ship a full game layer (Wave 1+) boot it here. Worlds
+    // without one (Mind Atlas, for now) keep the classic explorer behavior.
+    if (def.game) {
+      const mod = await import(def.game);
+      await mod.initGame(engine);
+    }
+
     const lo = document.getElementById('loading');
     lo.classList.add('done');
     setTimeout(() => { lo.style.display = 'none'; }, 650);

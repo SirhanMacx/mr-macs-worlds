@@ -104,6 +104,8 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
 
   function interact(st) {
     if (!st) return;
+    // game-layer override: any interactable may carry its own handler
+    if (st.onInteract) { st.onInteract(st); return; }
     const c = content[def.key];
     switch (st.type) {
       case 'unit': {
@@ -176,6 +178,7 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
   const clock = new THREE.Clock();
   let frame = 0;
   let fpsAcc = 0, fpsN = 0, fpsAvg = 60, degraded = false;
+  const frameHooks = [];   // game-layer per-frame callbacks (dt, t, frame)
 
   function animate() {
     requestAnimationFrame(animate);
@@ -193,6 +196,7 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
     }
 
     if (!paused) player.update(dt);
+    for (let i = 0; i < frameHooks.length; i++) frameHooks[i](dt, t, frame);
     sky.update(t);
     water.update(t);
     if (frame % 2 === 0 && !reducedMotion) scatter.update(t);
@@ -207,8 +211,11 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
 
   // debug/verification hook (harmless in prod)
   const api = {
-    def, field, player, stations, renderer, scene, camera,
+    def, field, player, stations, renderer, scene, camera, content, hud, isMobile, reducedMotion,
     interact,
+    onFrame(fn) { frameHooks.push(fn); return () => { const i = frameHooks.indexOf(fn); if (i >= 0) frameHooks.splice(i, 1); }; },
+    setPaused(p) { paused = p; player.enabled = !p; if (p) player.releaseLock(); },
+    isPaused: () => paused,
     openStation: (id) => interact(stations.list.find(s => s.id === id)),
     teleport: (x, z) => player.teleport(x, z),
     info: () => ({

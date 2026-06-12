@@ -45,6 +45,8 @@ export const def = {
   subtitle: 'Global History 9 — 9R & ENL — walk the year from the first villages to the first global age.',
   // ENL support: in-world trilingual glossary (EN · 中文 + pinyin · Español)
   glossary: './data/enl-glossary-global9.json',
+  // Wave 1+2: the full TRADE WINDS game layer (see docs/GAME_DESIGN.md)
+  game: './game/worlds/trade-winds/game.js',
   seed: SEED,
   size: 640,
   sea: 0,

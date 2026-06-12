@@ -228,7 +228,7 @@ export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound,
     if (station === promptFor) return;
     promptFor = station;
     if (!station) { promptEl.style.display = 'none'; return; }
-    const verb = station.type === 'hub' ? 'Return to hub' : 'Open';
+    const verb = station.verb || (station.type === 'hub' ? 'Return to hub' : 'Open');
     promptEl.innerHTML = isMobile
       ? `<b>TAP</b> ${verb} — ${station.label}`
       : `<b>E</b> ${verb} — ${station.label}`;
