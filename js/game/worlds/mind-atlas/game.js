@@ -1,0 +1,563 @@
+// game.js — MIND ATLAS controller: turns the AP Psychology world into a
+// mind-delver action-puzzle adventure. Five unit-regions to RESTORE (a concept-
+// mechanic puzzle + a Misconception Wraith each), psych-themed ABILITIES that
+// gate progression, Case File investigations (AAQ/EBQ) at the Observatory, and
+// an optional Trial of the Self off the 175-question bank. Reuses the shared
+// game systems; saves on every action. 2024 CED scope throughout.
+import * as THREE from 'three';
+import * as Panels from '../../../learn/panels.js';
+import * as Audio from '../../../engine/audio.js';
+
+import { createSave } from '../../save.js';
+import { createXP } from '../../xp.js';
+import { createNPCSystem } from '../../npc.js';
+import { createParticles } from '../../particles.js';
+import { openDialogue } from '../../dialogue.js';
+import * as UI from '../../ui.js';
+import * as Sfx from '../../sfx.js';
+
+import {
+  EXAM, ABILITIES, REGIONS, ORDER, CASE_REGION, DENIZENS,
+  CASE_FILES, WRAITHS, REINFORCEMENT,
+} from './content.js';
+import { PUZZLES, openReinforcement } from './puzzles.js';
+import { openWraith } from './wraith.js';
+import { openCase } from './casefile.js';
+import { openTrial } from './trial.js';
+
+const esc = UI.esc;
+const REGION_BY = {}; REGIONS.forEach(r => { REGION_BY[r.id] = r; });
+
+const DEFAULTS = {
+  v: 1,
+  insight: 0, xp: 0, level: 1, perkPts: 0,
+  confidence: 100,
+  regions: {},          // id -> { puzzle, wraith, restored, reinforcement }
+  abilities: {},        // id -> true
+  gates: {},            // regionId -> true (gate attuned/passed)
+  scrolls: 0,           // 0..3 evidence scrolls gathered (Case Files gate)
+  cases: {},            // caseId -> solved bool
+  flags: {},
+  pos: null,
+};
+
+const MAXCONF = 100;
+
+export async function initGame(api) {
+  const { scene, field, player, stations, camera, def, isMobile } = api;
+
+  // ---------- state ----------
+  const store = createSave('mind-atlas', DEFAULTS);
+  const S = store.state;
+  const save = () => store.save();
+  function rec(id) { if (!S.regions[id]) S.regions[id] = { puzzle: false, wraith: false, restored: false, reinforcement: false }; return S.regions[id]; }
+
+  // ---------- systems ----------
+  UI.init(api);
+  const particles = createParticles(scene);
+  const npcSys = createNPCSystem(scene, field, camera);
+  const xp = createXP({
+    state: S, save,
+    onLevelUp(level) {
+      Sfx.levelUp();
+      UI.banner(`Cartographer Level ${level}`, 'Your map of the mind sharpens');
+      particles.burst('confetti', player.pos.x, player.pos.y, player.pos.z, 22);
+      refreshHud();
+    },
+  });
+
+  // ---------- g: the interface puzzles/wraiths/cases use ----------
+  const g = {
+    S,
+    fx(kind, n) { particles.burst(kind, player.pos.x, player.pos.y, player.pos.z, n || (kind === 'confetti' ? 30 : 14)); },
+    hasAbility(id) { return !!S.abilities[id]; },
+    confidence() { return S.confidence; },
+    hurt(n, label) {
+      S.confidence = Math.max(0, S.confidence - n);
+      UI.floatText(`-${n} confidence${label ? ' — ' + label : ''}`, 'loss');
+      save(); refreshHud();
+    },
+    recover() { S.confidence = Math.max(40, S.confidence); save(); refreshHud(); },
+    insight(n, label) {
+      if (n) {
+        S.insight += n; Sfx.coin();
+        UI.floatText(`+${n} insight${label ? ' — ' + label : ''}`, 'gain');
+        particles.burst('sparkle', player.pos.x, player.pos.y, player.pos.z, 8);
+      }
+      save(); refreshHud();
+    },
+    xp(n, label) { if (label) UI.floatText(`+${n} XP ${label}`, 'xp'); xp.add(n); refreshHud(); },
+  };
+
+  // ---------- HUD ----------
+  const bar = document.createElement('div');
+  bar.id = 'mind-bar';
+  bar.innerHTML = `
+    <div class="mb-block mb-ins" title="Insight — earned by solving the mind"><span class="mb-dot"></span><b id="mb-ins">0</b></div>
+    <div class="mb-block mb-conf" title="Confidence — your strength against Misconception Wraiths">
+      <span class="mb-lab">CONF</span><span class="mb-confbar"><i id="mb-conffill"></i></span></div>
+    <div class="mb-block mb-lvl" title="Cartographer level"><span class="mb-lab">LV</span> <b id="mb-level">1</b>
+      <span class="mb-xpbar"><i id="mb-xpfill"></i></span></div>
+    <div class="mb-block mb-reg" title="Regions restored"><span class="mb-lab">RESTORED</span> <b id="mb-reg">0/5</b></div>
+    <div class="mb-block mb-exam" title="The in-world exam date"><span class="mb-lab">EXAM</span> <b>${esc(EXAM.label)}</b></div>
+    <div class="mb-block mb-abil" id="mb-abil" title="Abilities earned"></div>
+    <button id="mb-atlas" class="mb-btn">ATLAS</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('#mb-atlas').addEventListener('click', () => { Sfx.click(); openAtlas(); });
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    if (e.code === 'KeyM' || e.code === 'KeyJ') { e.stopImmediatePropagation(); openAtlas(); }
+  }, true);
+
+  function regionsRestored() { return ORDER.filter(id => rec(id).restored).length; }
+  function refreshHud() {
+    bar.querySelector('#mb-ins').textContent = S.insight;
+    bar.querySelector('#mb-conffill').style.width = Math.round((S.confidence / MAXCONF) * 100) + '%';
+    bar.querySelector('#mb-conffill').className = S.confidence < 30 ? 'low' : '';
+    const pr = xp.progress();
+    bar.querySelector('#mb-level').textContent = pr.level;
+    bar.querySelector('#mb-xpfill').style.width = Math.round(pr.frac * 100) + '%';
+    bar.querySelector('#mb-reg').textContent = regionsRestored() + '/5';
+    const ab = ORDER.map(id => REGION_BY[id]).filter(r => S.abilities[r.grants]).map(r => ABILITIES[r.grants]);
+    bar.querySelector('#mb-abil').innerHTML = ab.length
+      ? ab.map(a => `<span class="mb-ab" title="${esc(a.name)} — ${esc(a.desc)}">${esc(a.icon)}</span>`).join('')
+      : '<span class="mb-abnone">no abilities yet</span>';
+  }
+
+  // ---------- region display names + station overrides ----------
+  for (const region of REGIONS) {
+    const st = stations.list.find(s => s.id === region.id);
+    if (!st) continue;
+    st.label = region.name;
+    st.sub = region.unit;
+    st.verb = 'Enter';
+    st.onInteract = () => openRegionHub(region);
+  }
+  // Observatory → Case Files
+  {
+    const st = stations.list.find(s => s.id === CASE_REGION);
+    if (st) { st.label = 'The Observatory'; st.sub = 'Case Files — AAQ & EBQ'; st.verb = 'Investigate'; st.onInteract = openCaseMenu; }
+  }
+  // FRQ pavilion → also Case Files
+  {
+    const st = stations.list.find(s => s.id === 'frq');
+    if (st) { st.label = 'Free-Response Pavilion'; st.sub = 'Case Files lab'; st.verb = 'Enter'; st.onInteract = openCaseMenu; }
+  }
+  // MCQ exam gate → Trial of the Self
+  {
+    const st = stations.list.find(s => s.id === 'mcq');
+    if (st) {
+      st.label = 'The Examination Gate'; st.sub = 'Trial of the Self'; st.verb = 'Approach';
+      st.onInteract = () => {
+        if (regionsRestored() < 5) {
+          Sfx.denied();
+          Panels.toast('The gate is sealed until all five regions are restored. Restore the mind first.');
+          return;
+        }
+        openTrial(g, (c, n) => {
+          UI.banner('Trial passed', `${c} of ${n} — the atlas stands ready for ${EXAM.long}`);
+          g.xp(60, 'Trial of the Self'); S.flags.trial = true; save();
+        });
+      };
+    }
+  }
+
+  // ---------- ability gates (3D barriers, metroidvania) ----------
+  const gateMeshes = {};
+  const gateExtras = {};
+  function buildGate(region) {
+    const st = stations.list.find(s => s.id === region.id);
+    if (!st) return;
+    // place the gate on the approach (toward world center) from the region
+    const cx = st.pos.x, cz = st.pos.z;
+    const len = Math.hypot(cx, cz) || 1;
+    const gx = cx - (cx / len) * 16;
+    const gz = cz - (cz / len) * 16;
+    const gy = field.height(gx, gz);
+    const grp = new THREE.Group();
+    const col = new THREE.Color(region.color);
+    const wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(7, 8, 1, 1),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.26, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    wall.position.y = 4;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(3.4, 0.18, 8, 24),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, depthWrite: false })
+    );
+    ring.position.y = 4;
+    grp.add(wall, ring);
+    grp.position.set(gx, gy, gz);
+    grp.lookAt(0, gy + 4, 0);
+    scene.add(grp);
+    gateMeshes[region.id] = { grp, wall, ring };
+
+    if (S.gates[region.id]) { grp.visible = false; }
+    gateExtras[region.id] = stations.addExtra({
+      id: 'gate-' + region.id, type: 'gate', verb: 'Attune', label: region.name + ' Gate',
+      pos: new THREE.Vector3(gx, gy, gz), interactR: 6,
+      hidden: !!S.gates[region.id],
+      onInteract() { tryGate(region); },
+    });
+  }
+  function tryGate(region) {
+    if (S.gates[region.id]) { Panels.toast(`The ${region.name} gate already stands open.`); return; }
+    if (g.hasAbility(region.gateReq)) {
+      S.gates[region.id] = true; save();
+      Sfx.eraUnlock();
+      const gm = gateMeshes[region.id];
+      if (gm) { gm.grp.visible = false; }
+      if (gateExtras[region.id]) gateExtras[region.id].hidden = true;
+      UI.banner(`${region.name} gate attuned`, `${ABILITIES[region.gateReq].name} resonates — the way is open`);
+      particles.burst('confetti', player.pos.x, player.pos.y, player.pos.z, 24);
+    } else {
+      Sfx.denied();
+      const need = ABILITIES[region.gateReq];
+      const src = REGIONS.find(r => r.grants === region.gateReq);
+      Panels.toast(`A barrier of ${need.name.toLowerCase()}. Restore ${src ? src.name : 'the prior region'} to earn ${need.name}, then return.`);
+    }
+  }
+  REGIONS.filter(r => r.gateReq).forEach(buildGate);
+  function refreshExtras() {
+    // hide gate interactables once passed
+    REGIONS.filter(r => r.gateReq).forEach(r => {
+      const ex = stations.list ? null : null; // gates are extras; toggle via stored ref
+    });
+  }
+
+  // ---------- denizens (mind NPCs) ----------
+  for (const key in DENIZENS) {
+    const spec = DENIZENS[key];
+    const st = stations.list.find(s => s.id === spec.region);
+    if (!st) continue;
+    const x = st.pos.x + spec.offset[0];
+    const z = st.pos.z + spec.offset[1];
+    const npc = npcSys.addNPC({
+      ...spec, x, z,
+      face: Math.atan2(st.pos.x - x, st.pos.z - z) + Math.PI,
+      labelColor: '#a9b8ff', wander: 4,
+    });
+    stations.addExtra({
+      id: 'denizen-' + spec.id, type: 'npc', verb: 'Speak with', label: spec.name,
+      pos: npc.group.position, interactR: 5,
+      onInteract() { openDialogue(npc, spec.dialogue, {}); },
+    });
+  }
+
+  // ---------- evidence scrolls (Case Files gather step) ----------
+  const scrollExtras = [];
+  function buildScrolls() {
+    const st = stations.list.find(s => s.id === CASE_REGION);
+    if (!st) return;
+    const spots = [[14, 8], [-12, 12], [10, -14]];
+    spots.forEach((o, i) => {
+      if (i < S.scrolls) return; // already gathered
+      const x = st.pos.x + o[0], z = st.pos.z + o[1], y = field.height(x, z);
+      const m = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.22, 0.22, 1.1, 8),
+        new THREE.MeshStandardMaterial({ color: 0xf0e6c8, emissive: 0x6b5e2c, emissiveIntensity: 0.5, roughness: 0.6 })
+      );
+      m.position.set(x, y + 1.0, z);
+      m.rotation.z = 0.5;
+      scene.add(m);
+      const ex = stations.addExtra({
+        id: 'scroll-' + i, type: 'scroll', verb: 'Take', label: 'Evidence Scroll',
+        pos: new THREE.Vector3(x, y, z), interactR: 4,
+        onInteract() {
+          S.scrolls = Math.min(3, S.scrolls + 1); save();
+          Sfx.questAccept(); particles.burst('sparkle', x, y + 1, z, 10);
+          scene.remove(m); stations.removeExtra(ex);
+          UI.floatText('Evidence scroll gathered', 'gain');
+          if (S.scrolls >= 3) UI.banner('Evidence complete', 'The Case Files at the Observatory are ready to open');
+          else Panels.toast(`Evidence scroll ${S.scrolls}/3 — find the rest near the Observatory.`);
+        },
+      });
+      scrollExtras.push({ ex, m });
+    });
+  }
+  buildScrolls();
+
+  // ---------- region hub ----------
+  function openRegionHub(region) {
+    UI.push({
+      className: 'gui-ma ma-hub',
+      html: '<div class="ma-card"></div>',
+      onMount(el) { renderHub(el.querySelector('.ma-card'), region); },
+    });
+  }
+  function renderHub(card, region) {
+    const r = rec(region.id);
+    const gated = !!region.gateReq && !S.gates[region.id];
+    const wraith = WRAITHS[region.id];
+    const puzLabel = {
+      neuron: 'Route the neural signals', memory: 'Carry the memory orbs',
+      conditioning: 'Condition your companion', attribution: 'Judge the attributions',
+      restructure: 'Restructure the thoughts',
+    }[region.puzzle];
+    card.innerHTML = `
+      <div class="ma-head"><div><div class="ma-kicker" style="color:#${region.color.toString(16).padStart(6, '0')}">${esc(region.unit)}</div>
+        <div class="ma-title">${esc(region.name)}${r.restored ? ' · RESTORED' : ''}</div></div>
+        <button class="dlg-x" data-gui-close>LEAVE</button></div>
+      <p class="ma-clue">${esc(region.blurb)}</p>
+      ${gated ? `<div class="ma-gatewarn">The region's signals are scrambled. Attune the <b>${esc(region.name)} Gate</b> nearby using <b>${esc(ABILITIES[region.gateReq].name)}</b> (earned by restoring ${esc((REGIONS.find(x => x.grants === region.gateReq) || {}).name || 'the prior region')}).</div>` : ''}
+      <div class="ma-hubrow">
+        <button class="ma-go ${r.puzzle ? 'done' : 'prim'}" id="hub-puzzle" ${gated || r.puzzle ? 'disabled' : ''}>${r.puzzle ? 'Concept solved ✓' : puzLabel}</button>
+        <button class="ma-go ${r.wraith ? 'done' : ''}" id="hub-wraith" ${(!r.puzzle || r.wraith) ? 'disabled' : ''}>${r.wraith ? 'Wraith dispelled ✓' : 'Confront ' + esc(wraith ? wraith.name : 'the wraith')}</button>
+      </div>
+      ${region.puzzle === 'conditioning' ? `<button class="ma-go ${r.reinforcement ? 'done' : ''}" id="hub-reinf" ${r.reinforcement ? 'disabled' : ''}>${r.reinforcement ? 'Reinforcement read ✓' : 'Reinforcement-schedule machines (+insight)'}</button>` : ''}
+      ${region.sensitive ? `<div class="ma-support">${esc(region.support)}</div>` : ''}
+      <div class="ma-fb" id="ma-fb">${r.restored ? 'This region of the mind is whole. Its ability is yours.' : 'Solve the concept, then dispel its Misconception Wraith to restore the region.'}</div>`;
+    const pb = card.querySelector('#hub-puzzle');
+    if (pb && !pb.disabled) pb.addEventListener('click', () => { UI.pop(); startPuzzle(region); });
+    const wb = card.querySelector('#hub-wraith');
+    if (wb && !wb.disabled) wb.addEventListener('click', () => { UI.pop(); startWraith(region); });
+    const rb = card.querySelector('#hub-reinf');
+    if (rb && !rb.disabled) rb.addEventListener('click', () => {
+      UI.pop();
+      currentPuzzle = openReinforcement(g, () => { rec(region.id).reinforcement = true; g.insight(30, 'reinforcement schedules'); g.xp(20); save(); });
+    });
+  }
+
+  // ---------- puzzle / wraith / restore flow ----------
+  let currentPuzzle = null;
+  function startPuzzle(region) {
+    const open = PUZZLES[region.puzzle];
+    if (!open) return;
+    currentPuzzle = open(g, () => {
+      rec(region.id).puzzle = true; save();
+      g.xp(40, region.name + ' concept'); g.insight(25, region.name);
+      checkRestore(region);
+    });
+  }
+  function startWraith(region) {
+    currentPuzzle = openWraith(region.id, g, () => {
+      rec(region.id).wraith = true; save();
+      g.xp(40, 'wraith dispelled');
+      checkRestore(region);
+    });
+  }
+  function checkRestore(region) {
+    const r = rec(region.id);
+    if (r.restored) return;
+    if (r.puzzle && r.wraith) {
+      r.restored = true;
+      // grant ability
+      S.abilities[region.grants] = true;
+      save();
+      applyAbilities();
+      const ab = ABILITIES[region.grants];
+      Sfx.eraUnlock();
+      UI.banner(`${region.name} restored — ${ab.name} gained`, ab.desc, 4200);
+      particles.burst('confetti', player.pos.x, player.pos.y + 2, player.pos.z, 40);
+      g.insight(50, region.name + ' restored');
+      refreshHud();
+      updateBeacon();
+      checkWin();
+    } else {
+      // re-open hub so the next step is obvious
+      openRegionHub(region);
+    }
+  }
+  function applyAbilities() {
+    player.speedMul = 1 + (g.hasAbility('saltatory') ? 0.18 : 0);
+  }
+  applyAbilities();
+
+  function checkWin() {
+    if (S.flags.won) return;
+    if (regionsRestored() >= 5) {
+      S.flags.won = true; save();
+      Sfx.examPass();
+      UI.banner('THE MIND ATLAS IS WHOLE', `All five regions restored before ${EXAM.long}. The Examination Gate now opens for the optional Trial of the Self.`, 6000);
+      particles.burst('confetti', player.pos.x, player.pos.y + 2, player.pos.z, 50);
+    }
+  }
+
+  // ---------- case files ----------
+  function openCaseMenu() {
+    if (S.scrolls < 3) {
+      Sfx.denied();
+      Panels.toast(`Gather the 3 evidence scrolls scattered near the Observatory first (${S.scrolls}/3).`);
+      return;
+    }
+    UI.push({
+      className: 'gui-ma ma-hub',
+      html: '<div class="ma-card"></div>',
+      onMount(el) { renderCaseMenu(el.querySelector('.ma-card')); },
+    });
+  }
+  function renderCaseMenu(card) {
+    card.innerHTML = `
+      <div class="ma-head"><div><div class="ma-kicker">THE OBSERVATORY</div>
+        <div class="ma-title">Case Files</div></div>
+        <button class="dlg-x" data-gui-close>LEAVE</button></div>
+      <p class="ma-clue">Two open investigations. Reconstruct each from the evidence — the same skill the AAQ and EBQ test on the exam.</p>
+      <div class="ma-caselist">${CASE_FILES.map(c =>
+        `<button class="ma-go ${S.cases[c.id] ? 'done' : 'prim'}" data-case="${c.id}">${esc(c.name)} <small>(${esc(c.type)})${S.cases[c.id] ? ' ✓' : ''}</small></button>`).join('')}</div>`;
+    card.querySelectorAll('[data-case]').forEach(b => b.addEventListener('click', () => {
+      const cdef = CASE_FILES.find(c => c.id === b.dataset.case);
+      const frqItem = (api.content[def.key].frq.items || [])[cdef.frqIndex];
+      UI.pop();
+      currentPuzzle = openCase(cdef, frqItem, g, (passed, score, total) => {
+        if (passed && !S.cases[cdef.id]) { S.cases[cdef.id] = true; g.xp(45, cdef.type); g.insight(40, cdef.name); save(); }
+      });
+    }));
+  }
+
+  // ---------- Atlas panel (regions / abilities / cases) ----------
+  function openAtlas() {
+    UI.push({
+      className: 'gui-ma ma-atlas',
+      html: '<div class="ma-card"></div>',
+      onMount(el) { renderAtlas(el.querySelector('.ma-card')); },
+    });
+  }
+  function renderAtlas(card) {
+    const regs = REGIONS.map(r => {
+      const rc = rec(r.id);
+      const status = rc.restored ? 'restored' : rc.puzzle ? 'wraith next' : 'unsolved';
+      return `<div class="ma-arow ${rc.restored ? 'on' : ''}">
+        <span class="ma-adot" style="background:#${r.color.toString(16).padStart(6, '0')}"></span>
+        <b>${esc(r.name)}</b><span class="ma-aunit">${esc(r.unit)}</span>
+        <i>${status}${r.gateReq && !S.gates[r.id] ? ' · gate sealed' : ''}</i>
+        <button class="ma-abeacon" data-go="${r.id}">guide</button></div>`;
+    }).join('');
+    const ab = ORDER.map(id => REGION_BY[id]).filter(r => S.abilities[r.grants]).map(r => ABILITIES[r.grants]);
+    card.innerHTML = `
+      <div class="ma-head"><div><div class="ma-kicker">ATLAS OF THE MIND</div>
+        <div class="ma-title">${regionsRestored()}/5 regions restored · Exam ${esc(EXAM.label)}</div></div>
+        <button class="dlg-x" data-gui-close>CLOSE</button></div>
+      <div class="ma-arows">${regs}</div>
+      <h4 class="ma-h4">Abilities</h4>
+      <div class="ma-ablist">${ab.length ? ab.map(a => `<div class="ma-ab2"><b>${esc(a.icon)} ${esc(a.name)}</b><span>${esc(a.desc)}</span></div>`).join('') : '<p class="ma-fb">None yet — restore a region to earn your first ability.</p>'}</div>
+      <h4 class="ma-h4">Case Files</h4>
+      <div class="ma-ablist">${CASE_FILES.map(c => `<div class="ma-ab2"><b>${esc(c.name)}</b><span>${S.cases[c.id] ? 'solved' : (S.scrolls >= 3 ? 'ready at the Observatory' : 'gather evidence (' + S.scrolls + '/3)')}</span></div>`).join('')}</div>`;
+    card.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => {
+      const st = stations.list.find(s => s.id === b.dataset.go);
+      if (st) { stations.setBeacon(st); UI.closeAll(); Panels.toast('A beacon marks the way.'); }
+    }));
+  }
+
+  // ---------- beacon ----------
+  function updateBeacon() {
+    const next = ORDER.map(id => ({ id, st: stations.list.find(s => s.id === id) })).find(o => o.st && !rec(o.id).restored);
+    stations.setBeacon(next ? next.st : (stations.list.find(s => s.id === 'mcq') || null));
+  }
+
+  // ---------- panels coexistence ----------
+  Panels.setHandlers({
+    onOpen() { api.setPaused(true); },
+    onClose() { if (!UI.isOpen()) api.setPaused(false); stations.refreshVisuals(); updateBeacon(); },
+    onStationCleared() { stations.refreshVisuals(); updateBeacon(); },
+    chime: Audio.chime,
+  });
+
+  // ---------- frame loop ----------
+  let stepT = 0, saveT = 0;
+  api.onFrame((dt, t) => {
+    npcSys.update(dt, t, player.pos);
+    particles.update(dt);
+
+    // confidence slowly recovers as you walk the mind
+    if (!api.isPaused() && S.confidence < MAXCONF) {
+      const move = player.speedNow > 1.2 ? 5 : 2;
+      S.confidence = Math.min(MAXCONF, S.confidence + dt * move);
+      if (Math.random() < 0.02) refreshHud();
+    }
+
+    // gate shimmer
+    for (const id in gateMeshes) {
+      const gm = gateMeshes[id];
+      if (gm.grp.visible) { gm.ring.rotation.z = t * 0.6; gm.wall.material.opacity = 0.2 + Math.sin(t * 2) * 0.08; }
+    }
+
+    if (!api.isPaused() && player.grounded && player.speedNow > 1.2) {
+      stepT -= dt * player.speedNow;
+      if (stepT <= 0) { stepT = 3.4; Sfx.footstep(player.speedNow > 9); }
+    }
+
+    saveT -= dt;
+    if (saveT <= 0) { saveT = 5; S.pos = [Math.round(player.pos.x * 10) / 10, Math.round(player.pos.z * 10) / 10]; save(); }
+  });
+
+  // ---------- boot ----------
+  refreshHud();
+  updateBeacon();
+  if (S.pos) player.teleport(S.pos[0], S.pos[1]);
+  Sfx.startAmbient();
+
+  if (!S.flags.intro) {
+    S.flags.intro = true; save();
+    UI.push({
+      className: 'gui-ma gui-intro',
+      html: `<div class="ma-card intro-card">
+        <div class="intro-kicker">MIND ATLAS</div>
+        <h2>Restore the five regions before the Exam of the Self.</h2>
+        <p>You are a Mind Cartographer, shrunk into a vast inner world. Five regions of the mind have fragmented. In each you will <b>solve a concept-puzzle</b> — route neural signals, carry memory orbs, condition a companion, judge a crowd, rebuild a thought — and <b>dispel a Misconception Wraith</b> that voices a tempting wrong idea.</p>
+        <p>Restoring a region earns a psych-themed <b>ability</b> that opens the gate to the next. Gather evidence at the Observatory for the <b>Case Files</b>. Whole the atlas before ${esc(EXAM.long)}.</p>
+        <p class="intro-keys">${isMobile ? 'Left stick to move, drag right side to look. TAP prompts to act.' : 'WASD to move, mouse to look, SHIFT to run, E to interact.'} M / J — atlas.</p>
+        <button class="ma-go prim" data-gui-close>ENTER THE MIND</button>
+      </div>`,
+      dismissible: true,
+    });
+  }
+
+  // ---------- debug / verification hook ----------
+  const game = {
+    S, xp, save: () => save(),
+    regionsRestored, rec,
+    openRegionHub, openCaseMenu, openAtlas,
+    debug: {
+      goto(id) { const st = stations.list.find(s => s.id === id); if (st) player.teleport(st.pos.x, st.pos.z - 6); },
+      // drive a region's concept puzzle to completion through the real logic
+      solvePuzzle(regionId) {
+        const region = REGION_BY[regionId];
+        if (!region) return false;
+        startPuzzle(region);
+        if (currentPuzzle && currentPuzzle.auto) currentPuzzle.auto();
+        UI.closeAll();
+        return rec(regionId).puzzle;
+      },
+      solveWraith(regionId) {
+        startWraith(REGION_BY[regionId]);
+        if (currentPuzzle && currentPuzzle.auto) currentPuzzle.auto();
+        UI.closeAll();
+        return rec(regionId).wraith;
+      },
+      // attempt a wraith but answer WRONG once to prove confidence cost
+      wraithWrong(regionId) {
+        const before = S.confidence;
+        startWraith(REGION_BY[regionId]);
+        // click a wrong refutation directly
+        const btns = document.querySelectorAll('.ma-wraith .ma-reframe');
+        const wrong = Array.from(btns).find(b => b.dataset.ok === '0');
+        if (wrong) wrong.click();
+        return { before, after: S.confidence };
+      },
+      restore(regionId) { this.solvePuzzle(regionId); this.solveWraith(regionId); return rec(regionId).restored; },
+      passGate(regionId) { tryGate(REGION_BY[regionId]); return !!S.gates[regionId]; },
+      gatherScrolls() { S.scrolls = 3; save(); return S.scrolls; },
+      caseFile(caseId) {
+        const cdef = CASE_FILES.find(c => c.id === caseId);
+        const frqItem = (api.content[def.key].frq.items || [])[cdef.frqIndex];
+        const c = openCase(cdef, frqItem, g, (passed) => { if (passed) { S.cases[cdef.id] = true; save(); } });
+        if (c.auto) c.auto();
+        UI.closeAll();
+        return !!S.cases[caseId];
+      },
+      // open a memory puzzle and load past capacity to prove the 7±2 limit bites
+      memLimit() {
+        const c = PUZZLES.memory(g, () => {});
+        const cap = c.info().cap;
+        for (let k = 0; k <= cap; k++) c.load();  // cap+1 loads → one overflow
+        const info = c.info();
+        UI.closeAll();
+        return info;  // { cap, tray, vault, overflowed, done }
+      },
+      reset() { store.reset(); location.reload(); },
+      state: () => JSON.parse(JSON.stringify(S)),
+    },
+  };
+  window.MA = game;
+  return game;
+}

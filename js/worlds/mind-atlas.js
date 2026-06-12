@@ -39,6 +39,8 @@ export const def = {
   world: 'mind-atlas',
   title: 'The Mind Atlas',
   subtitle: 'AP Psychology — an inner world mapped to the five units of the 2024 CED.',
+  // Wave 3: the full MIND ATLAS game layer (see docs/GAME_DESIGN.md).
+  game: './game/worlds/mind-atlas/game.js',
   seed: SEED,
   size: 560,
   sea: 0,
