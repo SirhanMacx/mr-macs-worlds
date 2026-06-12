@@ -3,11 +3,13 @@
 import { loadWorldContent } from './learn/content-loader.js';
 import { def as tradeWinds } from './worlds/trade-winds.js';
 import { def as mindAtlas } from './worlds/mind-atlas.js';
+import { def as wordHarbor } from './worlds/word-harbor.js';
 import { createEngine } from './engine/engine.js';
 
 const WORLDS = {
   'global9': tradeWinds, 'trade-winds': tradeWinds,
   'appsych': mindAtlas, 'mind-atlas': mindAtlas,
+  'enl': wordHarbor, 'word-harbor': wordHarbor,
 };
 
 function webglOK() {

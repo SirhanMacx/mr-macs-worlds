@@ -664,5 +664,11 @@
     }
    }
   }
+ },
+ "enl": {
+  "title": "Word Harbor",
+  "subtitle": "Global 9 ENL — arrive by boat, collect the words, build your town.",
+  "theme": "harbor",
+  "nodes": []
  }
 }

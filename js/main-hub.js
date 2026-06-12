@@ -3,6 +3,7 @@
 // worlds are generated from (proof of determinism, and it loads instantly).
 import { def as tradeWinds } from './worlds/trade-winds.js';
 import { def as mindAtlas } from './worlds/mind-atlas.js';
+import { def as wordHarbor } from './worlds/word-harbor.js';
 
 const KEY = 'mmw-progress-v2';
 
@@ -113,6 +114,7 @@ function boot() {
 
   wireCard('card-global9', tradeWinds, './world.html?w=global9');
   wireCard('card-appsych', mindAtlas, './world.html?w=appsych');
+  wireCard('card-enl', wordHarbor, './world.html?w=enl');
 }
 
 window.addEventListener('DOMContentLoaded', boot);
