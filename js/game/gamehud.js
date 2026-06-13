@@ -16,6 +16,11 @@ export function createGameHUD({ onJournal, onMap, isMobile }) {
     <div class="tb-block" title="Cargo packs used"><span class="tb-lab">CARGO</span> <b id="tb-cargo">0/6</b></div>
     <div class="tb-block tb-rank" title="Guild rank — take exams at the Merchants' Guild Hall"><b id="tb-rank">Peddler</b></div>
     <div class="tb-block tb-era"><span class="tb-lab">ERA</span> <b id="tb-era">I</b> <span id="tb-eraname" class="tb-eraname"></span></div>
+    <div class="tb-block tb-house" id="tb-house-block" title="House Standing — your family's name in the markets of the world. Win it back one honest contract at a time." style="display:none">
+      <span class="tb-lab">HOUSE</span>
+      <span class="tb-housebar"><i id="tb-housefill"></i></span>
+      <b id="tb-house">0</b>
+    </div>
     <div class="tb-block tb-lvl" title="Trader level — earn XP by trading, quests and exams">
       <span class="tb-lab">LV</span> <b id="tb-level">1</b>
       <span class="tb-xpbar"><i id="tb-xpfill"></i></span>
@@ -44,7 +49,8 @@ export function createGameHUD({ onJournal, onMap, isMobile }) {
   const el = id => bar.querySelector('#' + id);
   const coinsEl = el('tb-coins'), cargoEl = el('tb-cargo'), rankEl = el('tb-rank'),
     eraEl = el('tb-era'), eraNameEl = el('tb-eraname'), lvlEl = el('tb-level'),
-    xpFill = el('tb-xpfill'), ptsEl = el('tb-pts');
+    xpFill = el('tb-xpfill'), ptsEl = el('tb-pts'),
+    houseBlock = el('tb-house-block'), houseFill = el('tb-housefill'), houseEl = el('tb-house');
 
   let lastCoins = null;
 
@@ -69,11 +75,25 @@ export function createGameHUD({ onJournal, onMap, isMobile }) {
     }
   }
 
+  // House Standing — shown only once the story has begun (chapter >= 1). A
+  // small pulse on rise makes "the house has a name again" feel like a win.
+  let lastHouse = null;
+  function setHouse(standing, max = 12) {
+    if (standing === undefined || standing === null) { houseBlock.style.display = 'none'; return; }
+    houseBlock.style.display = '';
+    houseEl.textContent = standing;
+    houseFill.style.width = Math.max(4, Math.min(100, Math.round((standing / max) * 100))) + '%';
+    if (lastHouse !== null && standing > lastHouse) {
+      houseBlock.classList.remove('rise'); void houseBlock.offsetWidth; houseBlock.classList.add('rise');
+    }
+    lastHouse = standing;
+  }
+
   function setQuest(q) {
     if (!q) { tracker.style.display = 'none'; return; }
     tracker.style.display = 'block';
     tracker.innerHTML = `<span class="qt-name">${esc(q.name)}</span><span class="qt-obj">${esc(q.objective)}</span>`;
   }
 
-  return { set, setQuest, bar };
+  return { set, setQuest, setHouse, bar };
 }

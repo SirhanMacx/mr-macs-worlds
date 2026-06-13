@@ -145,11 +145,11 @@ export function topicsForEra(era) {
 // ---------------- QUESTS ----------------
 export const QUESTS = [
   {
-    id: 'cedarrun', name: 'Cedar for the River Kings', era: 1, giver: 'zimrida',
-    summary: 'Buy 2 cedar timber in Byblos and deliver it to the priestess at Ur — Sumer has silver and no forests.',
+    id: 'cedarrun', name: 'The First Honest Contract', era: 1, giver: 'anath',
+    summary: 'The first road of your mother\'s house in a year: buy 2 cedar in Byblos and win the temple contract at Ur from the priestess Nin-Banda — before the Vell take it.',
     stages: [
-      { objective: 'Deliver 2 Cedar Timber to Nin-Banda at Ur', type: 'deliver', target: 'ninbanda', goods: { cedar: 2 }, targetCity: 'ur' },
-      { objective: 'Return to Zimrida in Byblos', type: 'talk', target: 'zimrida', targetCity: 'byblos' },
+      { objective: 'Carry 2 Cedar Timber to Nin-Banda at Ur — and win her trust', type: 'deliver', target: 'ninbanda', goods: { cedar: 2 }, targetCity: 'ur' },
+      { objective: 'Return to Old Anath in Byblos', type: 'talk', target: 'anath', targetCity: 'byblos' },
     ],
     rewards: { coins: 45, xp: 45 },
   },
@@ -233,6 +233,33 @@ export const QUESTS = [
   },
 ];
 
+// ---------------- COLD OPEN ----------------
+// The inciting incident — plays once, before the player touches a control, on
+// New Game. Goal (save the house), stakes (the name erased; the missing
+// mother), mentor (Anath), and the looming rival (Vell) in ~90 seconds. This
+// is the beat v3 never had. The controller appends a final controls beat.
+// History is REAL: Byblos is the cedar port; the river valleys are treeless
+// floodplains that imported timber — the fiction (house, mother, the Vell) is
+// the wrapper around that true trade.
+export const COLD_OPEN = [
+  {
+    tint: 'amber', art: 'candle', kicker: 'The House of the Open Road',
+    text: 'For four generations your house has sailed every sea — since your great-grandmother first sold Byblos cedar to kings who had no forests of their own. Tonight, by one guttering candle, it owes more than it owns.',
+  },
+  {
+    tint: 'amber', art: 'ledger',
+    text: 'Last spring your mother — the house\'s master-trader — rode east with the caravan to settle the debt herself. The caravan came home. She did not. This is the last page she ever wrote, and it is not finished.',
+  },
+  {
+    tint: 'cold', art: 'notice', kicker: 'The House of Vell',
+    text: 'A notice is nailed to your door. The rival House of Vell offers to buy your name — your routes, your ledgers, your silence — and erase the House of the Open Road from every market on Earth. You have until the season\'s end to answer.',
+  },
+  {
+    tint: 'dusk', art: 'portrait', palette: { robe: 0x9c6b2f, trim: 0x6b481d, skin: 0xb97f4e, hat: 0x5e3a1c },
+    text: 'A knock. Old Anath — your mother\'s caravan-master, thirty years on her roads — presses the ledger back into your hands. "A house isn\'t dead while one donkey still walks," he says. "Get up, heir. We have a road to walk."',
+  },
+];
+
 // ---------------- NPCS ----------------
 // Real figures carry real history; supporting characters carry period-true
 // names and trades. Dialogue trees reference quest/econ state through ctx.
@@ -241,26 +268,91 @@ export const NPCS = [
     id: 'zimrida', name: 'Zimrida', title: 'Harbormaster of Byblos', city: 'byblos', era: 1,
     offset: [6, 3], hatKind: 'cap', palette: { robe: 0x2f6f8f, trim: 0x1d4a61, skin: 0xc98a5b, hat: 0x1d4a61 },
     dialogue: {
-      start: (ctx) => ctx.quests.isDone('cedarrun') ? 'after' : (ctx.quests.isActive('cedarrun') ? (ctx.quests.turnInReady('cedarrun', 'zimrida', ctx.econ) ? 'turnin' : 'during') : 'root'),
+      start: 'root',
       nodes: {
         root: {
-          text: 'Welcome to the quay, young trader. Egypt has gold and grain but not one forest worth the name — every temple beam they raise is cedar from our hills. Sumer is the same. Buy timber cheap here, sell it where rivers rule and trees do not. That is the whole secret of Byblos.',
+          text: 'Your mother\'s child — I\'d know the face anywhere. Welcome back to the quay. Egypt has gold and grain but not one forest worth the name; every temple beam they raise is cedar from our hills. Sumer is the same. Buy timber cheap here, sell it where rivers rule and trees do not — that is the whole secret your house was built on.',
           choices: [
-            { label: 'Give me the cedar contract.', effect: ctx => { ctx.quests.accept('cedarrun'); }, next: 'accepted' },
-            { label: 'Tell me about this port first.', next: 'lore' },
+            { label: 'Where do I even start, with the debt this size?', next: 'anath' },
+            { label: 'Tell me about this port.', next: 'lore' },
           ],
         },
+        anath: { text: 'Start with the one man who never gave up on your house: Old Anath, your mother\'s caravan-master, waiting by your donkey at the end of the quay. Thirty years he drove her roads. He\'ll set you on your first one. Go to him.', choices: [] },
         lore: {
           text: 'Byblos is old beyond counting — we shipped papyrus so long that the Greeks call a book "biblos" after us. Phoenician ships out of these harbors carried an alphabet of twenty-two letters wherever they sold purple dye. Writing itself rode on trade, friend.',
-          choices: [{ label: 'Then let us trade. The cedar contract?', effect: ctx => { ctx.quests.accept('cedarrun'); }, next: 'accepted' }],
+          choices: [{ label: 'And my first road?', next: 'anath' }],
         },
-        accepted: {
-          text: 'Two timbers of cedar to Nin-Banda, priestess at Ur. Buy them in our market, follow the road east past the citadel, then south down the river. Watch the floods — the Tigris and Euphrates do not warn you like the Nile does.',
-          choices: [{ label: 'It will be done.', next: '@close' }],
+      },
+    },
+  },
+  {
+    // MENTOR. Your mother's retired caravan-master. Teaches the first verb
+    // (buy where it grows, sell where it can't), hands the goal, and recurs:
+    // marks your ledger and reveals your mother's last road to Chang'an.
+    id: 'anath', name: 'Old Anath', title: "Your mother's caravan-master", city: 'byblos', era: 1,
+    offset: [-4, -7], hatKind: 'brim', palette: { robe: 0x9c6b2f, trim: 0x6b481d, skin: 0xb97f4e, hat: 0x5e3a1c },
+    dialogue: {
+      start: (ctx) => {
+        if (ctx.quests.isDone('cedarrun')) return 'after';
+        if (ctx.quests.isActive('cedarrun')) {
+          if (ctx.quests.turnInReady('cedarrun', 'anath', ctx.econ)) return 'ledger';
+          return ctx.story.is('vellWonRound') && !ctx.story.is('urWon') ? 'reteach' : 'during';
+        }
+        return 'mentor';
+      },
+      nodes: {
+        mentor: {
+          text: 'Look at the harbor, heir. Cedar — that great timber on the barges. We sit on the source, so here it\'s cheap as firewood. But Egypt and Sumer? Lands of mud and rivers, not a forest worth the name. Carry cedar east and it turns to silver. That is the whole secret your great-grandmother built this house on: buy where it grows, sell where it cannot.',
+          choices: [
+            { label: "Then let's rebuild the house — one road at a time.", effect: ctx => { ctx.quests.accept('cedarrun'); }, next: 'sendoff' },
+            { label: "Why can't the river cities just grow their own trees?", next: 'geo' },
+          ],
         },
-        during: { text: 'The cedar goes EAST, to Ur — buy two timbers in our market if your packs are empty. The river road runs past the steppe citadel.', choices: [] },
-        turnin: { text: 'Back already, and Nin-Banda\'s seal on the receipt. You move like a trader born.', choices: [{ label: 'Collect the fee.', effect: ctx => { ctx.quests.advance('cedarrun'); }, next: '@close' }] },
-        after: { text: 'The house of Zimrida remembers a good contract. The market is yours — and when you hold real silver, the Merchants\' Guild at the Grand Stoa examines new members.', choices: [] },
+        geo: {
+          text: 'Because the great river valleys are floodplains, child — rich black soil the floods lay down every year, but flat as a table and treeless. No highland forests. No stone quarries. They grow grain enough to feed armies, and they must trade for everything else: timber, copper, lapis, all of it. That hunger is exactly why a road like ours can exist at all.',
+          choices: [{ label: "Then let's begin. Our first road.", effect: ctx => { ctx.quests.accept('cedarrun'); }, next: 'sendoff' }],
+        },
+        sendoff: {
+          text: 'A house is just a name that people trust — and we earn it back one honest contract at a time. Nin-Banda, priestess of Ur, needs cedar for the moon-god\'s temple roof. Buy two timbers in our market, follow the river road east. And heir — the House of Vell will already be there. They always are. Beat them with what you KNOW, not what you charge.',
+          choices: [{ label: "I'll carry our name back to Ur.", next: '@close' }],
+        },
+        during: { text: 'Two cedar timbers, bought here, carried east to Nin-Banda at Ur — the river road runs past the steppe citadel. Win her with the truth of the trade, not a cheap price. Bring our name home.', choices: [] },
+        reteach: {
+          text: 'You went to Ur and came back with the cedar still on your donkey — and the Vell took the day. Don\'t carry that as shame; carry it as a lesson. Ur has soil and silver but no forests and no stone. A river city lives or dies by the roads that bring it wood and metal. THAT is what the priestess was asking you to understand. Go back. She\'ll see another caravan.',
+          choices: [],
+        },
+        ledger: {
+          text: 'So a market spoke our name aloud again — first time in a year. (He draws a worn ledger from his coat and, with a blunt reed pen, marks a single line.) There. The first honest line in a book that is finally yours, not your mother\'s, not the creditors\'. The House of the Open Road is breathing again.',
+          choices: [{ label: 'What was she carrying, that last road east?', effect: ctx => { ctx.raiseHouse(1, 'The ledger is yours', 'Old Anath marks the first honest line in a year.'); }, next: 'mothersledger' }],
+        },
+        mothersledger: {
+          text: '(He turns to the back of the book — a page in your mother\'s own hand. A half-drawn route runs further east than your house has ever traded, ending at a single word, underlined twice.) Chang\'an. I never knew why she meant to go so far. Rebuild the house, heir. Earn the caravan that can reach that far — and maybe, at the end of her road, we find out together.',
+          choices: [{ label: "Then we keep walking her road.", effect: ctx => { ctx.story.flag('mothersLedgerSeen'); ctx.quests.advance('cedarrun'); }, next: '@close' }],
+        },
+        after: { text: 'The house has a name again, and a road to walk. When you hold real silver, the Merchants\' Guild at the Grand Stoa will examine new members — rank opens doors. But the Vell won\'t forget Ur. Neither will I.', choices: [] },
+      },
+    },
+  },
+  {
+    // ANTAGONIST'S FACE. The recurring rival house, cold steel-blue. Taunts
+    // before Ur; remembers being beaten after. Gives the rivalry a clock.
+    id: 'vell-agent', name: 'Sarpa', title: 'Agent of the House of Vell', city: 'ur', era: 1,
+    offset: [4, 5], hatKind: 'hood', palette: { robe: 0x2c4a6e, trim: 0x18304a, skin: 0xb98a5e, hat: 0x16283c },
+    dialogue: {
+      start: (ctx) => ctx.story.is('vellHumbledAtUr') ? 'beaten' : 'taunt',
+      nodes: {
+        taunt: {
+          text: '(A man in Vell steel-blue looks you over the way a clerk looks at spoiled cargo.) So the old house crawls out of its grave. The House of Vell has already bought three of your mother\'s routes — we\'ll have the rest by the season\'s end. That cedar on your donkey? Save your feet. The priestess won\'t pay temple silver for green wood off a dead woman\'s child.',
+          choices: [
+            { label: "We'll see what the priestess decides.", next: '@close' },
+            { label: 'My mother is missing, not dead.', next: 'jab' },
+          ],
+        },
+        jab: { text: 'Missing on a road my house now owns. Funny, that. Run along, heir — bring your little donkey to the temple and watch a real house take the contract.', choices: [] },
+        beaten: {
+          text: '(The Vell agent\'s smile is thinner than before.) Nin-Banda took your cedar over ours. One contract. Don\'t mistake it for a war, heir — the House of Vell has a long memory and a longer purse, and we are on every road you have yet to walk. We\'ll meet again on a richer one.',
+          choices: [{ label: 'Count on it.', next: '@close' }],
+        },
       },
     },
   },
@@ -305,7 +397,7 @@ export const NPCS = [
     offset: [7, -3], hatKind: 'crown', palette: { robe: 0xb08c3c, trim: 0x6e5526, skin: 0xc9986b, hat: 0xd4af37 },
     dialogue: {
       start: (ctx) => {
-        if (ctx.quests.turnInReady('cedarrun', 'ninbanda', ctx.econ)) return 'cedar';
+        if (ctx.quests.turnInReady('cedarrun', 'ninbanda', ctx.econ)) return 'challenge';
         if (ctx.quests.turnInReady('sharpedges', 'ninbanda', ctx.econ)) return 'obsidian';
         return 'root';
       },
@@ -315,9 +407,48 @@ export const NPCS = [
           choices: [{ label: 'Tell me what Ur buys dear.', next: 'trade' }],
         },
         trade: { text: 'Timber, friend — cedar above all. Stone. Copper from Magan when the Dilmun boats are late. We pay in barley, wool and silver by weight: the shekel is a WEIGHT before it is ever a coin. Sell us what the rivers cannot grow.', choices: [] },
-        cedar: {
-          text: 'Cedar of the western mountains — the temple roof has waited a season for this. The harbormaster of Byblos chose his trader well.',
-          choices: [{ label: 'Hand over the timber.', effect: ctx => { ctx.quests.deliver('cedarrun', ctx.econ); }, next: 'thanks' }],
+        // ★ THE KEYSTONE BEAT — you advance the STORY by understanding the
+        // history, not by passing a quiz. The Vell agent has poisoned the deal;
+        // you win the contract back only by knowing WHY a treeless river city
+        // pays a fortune for foreign wood. Wrong answers re-route the story and
+        // teach (through Anath), never a red X. No score, no "Question 1 of N".
+        challenge: {
+          text: 'A man in Vell steel-blue stands at the priestess\'s shoulder, and he has been talking. "Green and cracked, this newcomer\'s cedar," he says, "off a house that couldn\'t even keep its own master alive on the road." Nin-Banda lifts a hand for silence and turns to you, unconvinced. "The Vell speak well. So tell me, trader — why does a city like Ur, with all our barley and silver, pay a fortune for foreign wood at all? Convince me you understand the trade you claim to master."',
+          choices: [
+            {
+              kind: 'say',
+              label: 'Ur sits on a floodplain — rich soil, but no forests and no stone. A river city must import its timber, its copper, its lapis; that need is the very reason your trade roads exist. I don\'t sell wood — I sell what your land cannot grow.',
+              effect: ctx => {
+                ctx.story.flag('vellHumbledAtUr'); ctx.story.flag('urWon');
+                ctx.quests.deliver('cedarrun', ctx.econ);
+                ctx.raiseHouse(1, 'The house has a name again', 'A market speaks the House of the Open Road aloud — first time in a year.');
+              },
+              next: 'allywin',
+            },
+            {
+              kind: 'say',
+              label: 'My cedar is simply cheaper than the Vell\'s. For a temple roof, surely that is reason enough.',
+              effect: ctx => { ctx.story.flag('vellWonRound'); },
+              next: 'lostcheap',
+            },
+            {
+              kind: 'say',
+              label: 'Because the gods of Ur demand cedar, and no humbler wood will do for Nanna\'s house.',
+              next: 'lostgods',
+            },
+          ],
+        },
+        allywin: {
+          text: '(Nin-Banda\'s face warms; the Vell agent\'s jaw tightens and he melts back into the crowd.) "A trader who knows WHY, not only what. Your mother taught you well." She takes the timber into her own hands. "The temple\'s contract is yours — and your house\'s name will be spoken in this market again." See there, on the temple door — the lapis, blue as deep water? It walked here from mountains months to the east. Everything in Ur came up a river or down a road. Even our gods are imported.',
+          choices: [{ label: 'Then I\'ll carry our name home to Anath.', next: '@close' }],
+        },
+        lostcheap: {
+          text: '"Cheap wood for a god\'s roof?" Nin-Banda\'s mouth thins. "You sound like a peddler, not your mother\'s child." She turns away — and the Vell agent permits himself one small, cold smile as the steward waves HIS caravan forward instead.\n\n(At the city gate a hand settles on your shoulder. Old Anath, come up the river behind you — not angry.) "You answered like a man who hauls boxes. Your mother answered like one who knew WHY the boxes were worth hauling. Ur has soil and silver but no forests and no stone — a river city lives or dies by the roads that bring it timber and metal. THAT is what she was asking. Go back. She\'ll see another caravan."',
+          choices: [{ label: 'Tomorrow, then — and I\'ll answer her true.', next: 'challenge' }],
+        },
+        lostgods: {
+          text: '"The gods?" Nin-Banda almost smiles. "Cedar is prized for its great length, its sweet rot-resistant grain, and above all its scarcity here — not by any decree of Nanna. You have the reverence right and the reason wrong." The Vell agent slides smoothly into your silence.\n\n(Anath finds you after, by the gate.) "Close, heir — but lead with the ground under her feet. Ur sits on a floodplain with no forests and no stone; a river city MUST import its wood and metal. That need is why the roads exist, and why your cedar is worth a temple\'s silver. Try her again."',
+          choices: [{ label: 'I understand now. I\'ll go back to her.', next: 'challenge' }],
         },
         obsidian: {
           text: 'Obsidian from the Anatolian hills — blades sharper than any bronze. The temple scribes will fight over these.',
