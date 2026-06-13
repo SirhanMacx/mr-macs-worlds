@@ -32,7 +32,7 @@ import {
 } from './content.js';
 
 const DEFAULTS = {
-  v: 1,
+  v: 2, // bumped for the story rebuild — old pre-story saves reset so the cold open plays
   coins: 30, cargo: {}, capacity: 6, transport: 'donkey',
   xp: 0, level: 1, perkPts: 0, perks: {},
   era: 1, rank: 0,
