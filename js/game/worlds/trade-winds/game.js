@@ -10,6 +10,8 @@ import { buildStationMeshes } from '../../../engine/structures.js';
 import { makeLabel } from '../../../engine/geo-kit.js';
 
 import { createSave } from '../../save.js';
+import { createStory } from '../../story.js';
+import { playCutscene } from '../../cutscene.js';
 import { createEconomy, priceAt } from '../../econ.js';
 import { createXP } from '../../xp.js';
 import { createQuests } from '../../quests.js';
@@ -26,7 +28,7 @@ import * as Sfx from '../../sfx.js';
 
 import {
   ERAS, ERA_GATES, GOODS, CITIES, TRANSPORTS, PERKS, QUESTS, NPCS,
-  ZONES, EVENTS, AMBIENT_PER_CITY, topicsForEra,
+  ZONES, EVENTS, AMBIENT_PER_CITY, topicsForEra, COLD_OPEN,
 } from './content.js';
 
 const DEFAULTS = {
@@ -35,6 +37,10 @@ const DEFAULTS = {
   xp: 0, level: 1, perkPts: 0, perks: {},
   era: 1, rank: 0,
   quests: {}, flags: {}, visited: ['byblos'],
+  // narrative spine — chapter/beat/flags migrate cleanly onto old saves;
+  // House Standing is the family's name rising in the markets of the world.
+  story: { chapter: 0, beat: 'coldopen', flags: {} },
+  house: { standing: 0 },
   pos: null,
 };
 
@@ -45,6 +51,8 @@ export async function initGame(api) {
   const store = createSave('trade-winds', DEFAULTS);
   const S = store.state;
   const save = () => store.save();
+  if (!S.house) S.house = { standing: 0 }; // defensive for pre-story saves
+  const story = createStory({ state: S, save });
 
   // ---------- systems ----------
   UI.init(api);
@@ -137,6 +145,21 @@ export async function initGame(api) {
       era: S.era, eraName: ERAS[S.era].name,
       level: pr.level, xpFrac: pr.frac, perkPts: S.perkPts,
     });
+    // House Standing appears once the story has begun, at near-zero, climbing.
+    hud.setHouse(story.chapter >= 1 ? (S.house.standing || 0) : null);
+  }
+
+  // raise the family's name — the emotional payoff of a story win. A satisfying
+  // sting + a coin/sparkle burst + a banner, so the player FEELS they did
+  // something in the story (not "got a point").
+  function raiseHouse(n, title, sub) {
+    S.house.standing = (S.house.standing || 0) + n;
+    save();
+    Sfx.houseRise();
+    particles.burst('confetti', player.pos.x, player.pos.y + 1.5, player.pos.z, 28);
+    particles.burst('coin', player.pos.x, player.pos.y, player.pos.z, 12);
+    if (title) UI.banner(title, sub || '', 3400);
+    refreshHud();
   }
 
   function currentQuestEntry() {
@@ -351,9 +374,12 @@ export async function initGame(api) {
 
   function dialogueCtx(spec) {
     return {
-      state: S, econ, quests,
+      state: S, econ, quests, story,
       era: () => S.era,
       bonus(n, label) { gainCoins(n, label); gainXP(Math.round(n / 2)); },
+      // story hooks the keystone beat uses: raise the house's name; the rest
+      // (flags, is) are read straight off `story` in dialogue effects.
+      raiseHouse(n, title, sub) { raiseHouse(n, title, sub); },
     };
   }
 
@@ -584,33 +610,36 @@ export async function initGame(api) {
   if (S.pos) { player.teleport(S.pos[0], S.pos[1]); pack.teleportBehind(); }
   Sfx.startAmbient();
 
+  // ---------- cold open ----------
+  // New Game opens on the inciting incident, not a menu: the candle, the
+  // unfinished ledger, the Vell's notice, and Anath getting you up. The story
+  // begins (chapter 1) and Old Anath's quest marker waits at the quay.
   if (!S.flags.intro) {
     S.flags.intro = true;
-    save();
-    UI.push({
-      className: 'gui-intro',
-      html: `<div class="intro-card">
-        <div class="intro-kicker">TRADE WINDS</div>
-        <h2>One donkey. 4,500 years. Build the empire.</h2>
-        <p>You are a young merchant of <b>Byblos</b>, the old cedar port. Buy goods where they are cheap, walk the real routes, sell where they are craved — every price in this world is real history.</p>
-        <p>Talk to the people you meet: kings, scholars and admirals have work for a trader. Watch the roads — the desert, the monsoon and the river floods all test what you know.</p>
-        <p class="intro-keys">${isMobile ? 'Left stick to move, drag right side to look. TAP prompts to act.' : 'WASD to move, mouse to look, SHIFT to run, E to talk and trade.'} J — journal, M — trade map.</p>
-        <button class="intro-go" data-gui-close>BEGIN AT THE QUAY OF BYBLOS</button>
-      </div>`,
-      dismissible: true,
-    });
+    if (story.chapter < 1) story.chapter = 1;
+    refreshHud(); // House Standing appears now, at zero, ready to climb
+    const controlsBeat = {
+      tint: 'stone', kicker: 'Byblos — the cedar harbor',
+      text: (isMobile
+        ? 'Left stick to move, drag the right side to look. TAP a glowing prompt to act. The marker over Old Anath is your first road.'
+        : 'WASD to move, mouse to look, SHIFT to run, E to talk and trade. J — journal, M — map. The marker over Old Anath is your first road.'),
+      cta: 'Begin at the quay',
+    };
+    playCutscene([...COLD_OPEN, controlsBeat]);
   }
 
   // ---------- debug / verification hook ----------
   const game = {
-    S, econ, xp, quests, openCity, cityById, gmap, travel,
+    S, econ, xp, quests, story, openCity, cityById, gmap, travel,
     save: () => save(),
     netWorth,
-    checkEra,
+    checkEra, raiseHouse,
     debug: {
       buy(gid, n = 1) { const c = cityById[nearCity || 'byblos']; const idx = CITIES.indexOf(c); for (let i = 0; i < n; i++) econ.buy(gid, priceAt(econ.goodById[gid], c.market[gid] || 1, performance.now() / 1000, idx, discountNow())); refreshHud(); },
       sell(gid, n = 1) { const c = cityById[nearCity || 'byblos']; const idx = CITIES.indexOf(c); for (let i = 0; i < n; i++) econ.sell(gid, priceAt(econ.goodById[gid], c.market[gid] || 1, performance.now() / 1000, idx, -discountNow())); refreshHud(); },
       goto(cityId) { const c = cityById[cityId]; player.teleport(c.x, c.z + 6); pack.teleportBehind(); },
+      giveCedar() { econ.addGood('cedar', 2); refreshHud(); refreshMarkers(); },
+      talk(npcId) { const r = npcRecs.find(x => x.spec.id === npcId); if (r) openDialogue(r.npc, r.spec.dialogue, dialogueCtx(r.spec)); },
       reset() { store.reset(); location.reload(); },
     },
   };

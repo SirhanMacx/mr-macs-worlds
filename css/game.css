@@ -697,3 +697,75 @@ body.wh-world #prompt { padding: 12px 18px; }
   .wh-story-en { font-size: 19px; }
   .wh-gem-word { font-size: 28px; }
 }
+
+/* ============================================================
+   STORY LAYER — cinematic cutscene beats + House Standing meter
+   (additive; the narrative spine sits on top of the trade game)
+   ============================================================ */
+
+/* House Standing — an ochre cousin of the XP bar, your family's name rising */
+.tb-house b { color: #ffcf7a; font-weight: 800; }
+.tb-housebar { width: 56px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.tb-housebar i { display: block; height: 100%; width: 4%; background: linear-gradient(90deg, #c8951e, #ffd166); transition: width 0.6s cubic-bezier(.2,.7,.2,1); }
+.tb-house.rise { animation: houseRise 0.9s ease; }
+@keyframes houseRise {
+  0% { box-shadow: 0 0 0 rgba(255,209,102,0); }
+  35% { box-shadow: 0 0 16px rgba(255,209,102,0.7); transform: translateY(-2px); }
+  100% { box-shadow: 0 0 0 rgba(255,209,102,0); transform: translateY(0); }
+}
+
+/* the cutscene overlay — a full-screen vignette with a single framed column */
+.gui-cutscene { background: #05060a; }
+.gui-cutscene .cs-stage {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 7vh 6vw;
+  background: radial-gradient(120% 90% at 50% 38%, #3a2410 0%, #1a1208 55%, #0a0805 100%);
+  transition: background 0.9s ease;
+}
+.gui-cutscene .cs-stage::after { /* film grain / vignette edge */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 180px 40px rgba(0,0,0,0.7);
+}
+.gui-cutscene .cs-glow {
+  position: absolute; top: 30%; left: 50%; width: 340px; height: 340px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(255,196,110,0.10) 0%, rgba(255,196,110,0) 70%);
+  animation: csFlicker 3.4s ease-in-out infinite; pointer-events: none;
+}
+@keyframes csFlicker { 0%,100% { opacity: 0.75; } 45% { opacity: 1; } 70% { opacity: 0.6; } }
+.gui-cutscene .cs-art { position: relative; width: 150px; height: 150px; margin-bottom: 22px; filter: drop-shadow(0 6px 18px rgba(0,0,0,0.55)); }
+.gui-cutscene .cs-kicker {
+  position: relative; font: 800 12px/1 system-ui; letter-spacing: 0.32em; text-transform: uppercase;
+  color: #ffb86c; margin-bottom: 14px;
+}
+.gui-cutscene .cs-text {
+  position: relative; max-width: 620px; min-height: 3.2em;
+  font: 500 22px/1.65 Georgia, 'Times New Roman', serif; color: #f2e9d4;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6); cursor: pointer;
+}
+.gui-cutscene .cs-row { position: relative; margin-top: 30px; }
+.gui-cutscene .cs-cta {
+  font: 800 14px/1 system-ui; letter-spacing: 0.06em; color: #1a1208;
+  background: linear-gradient(180deg, #ffd166, #e0a93c); border: 0; border-radius: 10px;
+  padding: 14px 30px; cursor: pointer; box-shadow: 0 6px 18px rgba(255,180,80,0.25);
+}
+.gui-cutscene .cs-cta:hover { filter: brightness(1.08); }
+.gui-cutscene .cs-skip {
+  position: absolute; right: 22px; bottom: 18px;
+  font: 600 12px/1 system-ui; letter-spacing: 0.08em; color: rgba(255,255,255,0.5);
+  background: none; border: 0; cursor: pointer;
+}
+.gui-cutscene .cs-skip:hover { color: rgba(255,255,255,0.85); }
+.gui-cutscene .cs-shift { animation: csShift 0.5s ease; }
+@keyframes csShift { from { opacity: 0.25; } to { opacity: 1; } }
+
+/* the keystone choice — full in-character sentences, NOT A/B/C answer stems.
+   A touch warmer + roomier than a normal dialogue choice so it reads as speech. */
+.dlg-choice.say { line-height: 1.5; padding: 12px 14px; border-left: 3px solid rgba(255,209,102,0.5); }
+
+@media (max-width: 640px) {
+  .gui-cutscene .cs-text { font-size: 18px; }
+  .gui-cutscene .cs-art { width: 112px; height: 112px; }
+  .tb-housebar { width: 40px; }
+}

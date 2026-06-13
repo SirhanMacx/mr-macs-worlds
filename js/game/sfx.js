@@ -124,6 +124,56 @@ export function eraUnlock() {
 }
 export function examPass() { questDone(); setTimeout(() => on() && tone({ freq: 1568, dur: 0.4, vol: 0.08 }), 380); }
 
+// warm two-note rise — "the house has a name again". Used on a story win.
+export function houseRise() {
+  if (!on()) return;
+  tone({ freq: 392, type: 'triangle', dur: 0.5, vol: 0.09 });
+  tone({ freq: 523, type: 'triangle', at: 0.16, dur: 0.6, vol: 0.1 });
+  tone({ freq: 784, type: 'sine', at: 0.32, dur: 0.5, vol: 0.06 });
+}
+// soft dissonant fall — a wrong-path beat. CONSEQUENCE, not a buzzer.
+export function storyMiss() {
+  if (!on()) return;
+  tone({ freq: 330, type: 'sine', dur: 0.4, vol: 0.06 });
+  tone({ freq: 247, type: 'sine', at: 0.18, dur: 0.55, vol: 0.06 });
+}
+
+// a quiet, slowly-evolving low string pad for cutscenes. Returns a stop()
+// handle so the caller releases it when the beat ends. Self-contained; honors
+// mute (silent pad if muted, but still returns a working stop()).
+export function cinePad() {
+  const c = ac();
+  const g = c.createGain();
+  g.gain.value = 0.0001;
+  if (on()) g.gain.linearRampToValueAtTime(0.05, c.currentTime + 1.4);
+  g.connect(master);
+  const voices = [];
+  [110, 164.81, 220].forEach((f, idx) => {
+    const o = c.createOscillator();
+    o.type = idx === 2 ? 'sine' : 'triangle';
+    o.frequency.value = f;
+    const vg = c.createGain();
+    vg.gain.value = idx === 2 ? 0.25 : 0.5;
+    // gentle detune drift via a slow LFO so the pad breathes
+    const lfo = c.createOscillator(); lfo.frequency.value = 0.05 + idx * 0.03;
+    const lg = c.createGain(); lg.gain.value = 1.5;
+    lfo.connect(lg).connect(o.detune);
+    o.connect(vg).connect(g);
+    o.start(); lfo.start();
+    voices.push(o, lfo);
+  });
+  let stopped = false;
+  return function stop() {
+    if (stopped) return; stopped = true;
+    try {
+      g.gain.cancelScheduledValues(c.currentTime);
+      g.gain.setValueAtTime(g.gain.value, c.currentTime);
+      g.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.6);
+      voices.forEach(v => v.stop(c.currentTime + 0.7));
+    } catch (e) { /* already stopped */ }
+  };
+}
+
 let stepFlip = false;
 export function footstep(run) {
   if (!on()) return;
