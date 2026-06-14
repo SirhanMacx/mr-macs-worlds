@@ -21,6 +21,14 @@ import { pack as riverLands } from './river-lands.js';
 import { pack as timeTravelFestival } from './time-travel-festival.js';
 import { pack as tradeDocks } from './trade-docks.js';
 
+// — DENSITY packs (second, denser layer per island; ids namespaced "d-wh-…") —
+import { pack as dGeography } from './density-geography.js';
+import { pack as dRiver } from './density-river.js';
+import { pack as dBelief } from './density-belief.js';
+import { pack as dCrossing } from './density-crossing.js';
+import { pack as dTrade } from './density-trade.js';
+import { pack as dFarShore } from './density-far-shore.js';
+
 export const STORY_PACKS = [
   geographyIsleSample,
   beliefGrove,
@@ -29,6 +37,13 @@ export const STORY_PACKS = [
   riverLands,
   timeTravelFestival,
   tradeDocks,
+  // density layer
+  dGeography,
+  dRiver,
+  dBelief,
+  dCrossing,
+  dTrade,
+  dFarShore,
   // ← add new packs here (one import above, one entry here)
 ];
 

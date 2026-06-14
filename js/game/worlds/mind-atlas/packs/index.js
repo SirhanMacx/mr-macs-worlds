@@ -22,6 +22,14 @@ import { pack as u3DevLearning } from './u3-dev-learning.js';
 import { pack as u4SocialPersonality } from './u4-social-personality.js';
 import { pack as u5Health } from './u5-health.js';
 
+// — DENSITY packs (second, denser layer per unit; ids namespaced "d-ma-…") —
+import { pack as dU0ResearchMethods } from './density-u0-research-methods.js';
+import { pack as dU1Bio } from './density-u1-bio.js';
+import { pack as dU2Cognition } from './density-u2-cognition.js';
+import { pack as dU3DevLearning } from './density-u3-dev-learning.js';
+import { pack as dU4SocialPersonality } from './density-u4-social-personality.js';
+import { pack as dU5Health } from './density-u5-health.js';
+
 export const STORY_PACKS = [
   u1TenPercent,
   examOfTheSelf,
@@ -30,6 +38,13 @@ export const STORY_PACKS = [
   u3DevLearning,
   u4SocialPersonality,
   u5Health,
+  // density layer
+  dU0ResearchMethods,
+  dU1Bio,
+  dU2Cognition,
+  dU3DevLearning,
+  dU4SocialPersonality,
+  dU5Health,
   // ← add new packs here (one import above, one entry here)
 ];
 

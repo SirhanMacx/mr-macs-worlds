@@ -19,6 +19,16 @@ import { pack as u7RenaissanceReformation } from './u7-renaissance-reformation.j
 import { pack as u8Exploration } from './u8-exploration.js';
 import { pack as u9EnduringIssues } from './u9-enduring-issues.js';
 
+// — DENSITY packs (second, denser layer per unit; ids namespaced "d-tw-…") —
+import { pack as dU1EarlyHumans } from './density-u1-early-humans.js';
+import { pack as dU2RiverValleys } from './density-u2-river-valleys.js';
+import { pack as dU3Belief } from './density-u3-belief.js';
+import { pack as dU4Classical } from './density-u4-classical.js';
+import { pack as dU5Exchange } from './density-u5-exchange.js';
+import { pack as dU6Postclassical } from './density-u6-postclassical.js';
+import { pack as dU7RenaissanceMing } from './density-u7-renaissance-ming.js';
+import { pack as dU8Exploration } from './density-u8-exploration.js';
+
 export const STORY_PACKS = [
   unit3BeliefSystems,
   u1Neolithic,
@@ -29,6 +39,15 @@ export const STORY_PACKS = [
   u7RenaissanceReformation,
   u8Exploration,
   u9EnduringIssues,
+  // density layer
+  dU1EarlyHumans,
+  dU2RiverValleys,
+  dU3Belief,
+  dU4Classical,
+  dU5Exchange,
+  dU6Postclassical,
+  dU7RenaissanceMing,
+  dU8Exploration,
   // ← add new packs here (one import above, one entry here)
 ];
 
