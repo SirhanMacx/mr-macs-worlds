@@ -116,6 +116,7 @@ function normQual(qual) {
     bloom:      q.bloom !== false,             // medium+ default on
     aa:         q.aa || (q.tier === 'high' ? 'smaa' : 'fxaa'),
     ssao:       !!q.ssao,                       // high only, off by default
+    ssaoForce:  !!q.ssaoForce,                   // expensive GTAO normal-pass — off (busts draw budget)
     grade:      q.grade !== false,             // composer tiers default on
     godrays:    !!q.godrays,                    // high only, opt-in
     motes:      !!q.motes,                      // high only, opt-in
@@ -166,7 +167,16 @@ export function buildPostFX(renderer, scene, camera, qual = { composer: false })
 
   // 2) (high) ambient occlusion at HALF the composer resolution, small radius.
   //    GTAO allocates its own depth/normal/AO targets → dispose them on demote.
-  if (q.ssao && q.tier === 'high') {
+  //
+  //    DRAW-CALL BUDGET: GTAOPass runs an internal NormalPass that RE-RENDERS the
+  //    whole scene to a normal buffer — that roughly DOUBLES the per-frame draw
+  //    calls and was the dominant reason high busted the ≤180 ceiling. The
+  //    contact-AO it provided is now delivered for FREE on every tier by the
+  //    cheap vertex/decal AO contact rings under structures/trees/NPCs (see
+  //    D1/FIX-4), so the expensive screen-space AO is gated OFF by default. The
+  //    pass is kept intact behind an explicit opt-in flag for a future
+  //    high-headroom device, but it never counts against the shipped budget.
+  if (q.ssao && q.ssaoForce && q.tier === 'high') {
     const aoW = Math.max(1, Math.round((w * cpr) / 2));
     const aoH = Math.max(1, Math.round((h * cpr) / 2));
     // small-radius contact AO; pass tuning via the constructor's

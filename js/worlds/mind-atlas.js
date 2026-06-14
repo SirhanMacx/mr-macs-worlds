@@ -58,7 +58,13 @@ export const def = {
     // pale-lilac moon to keep the mind-delver world's reverie tone after dark.
     nightZenith: 0x0d0f2e, nightHorizon: 0x2a2348, fogNight: 0x161335, moonColor: 0xcfc6ee,
   },
-  light: { hemiSky: 0xa9b8ff, hemiGround: 0x41486b, hemiI: 0.95, sun: 0xffd9c0, sunI: 1.25 },
+  // GRAPHICS OVERHAUL (D1): a cool, dreamlike key against a violet fill — drop the
+  // flat .95 fill so the mind-regions gain depth; keep the clinical-bright wonder
+  // (a hair lifted exposure, cool grade) so the Atlas reads luminous, not murky.
+  light: {
+    hemiSky: 0x9fb0ff, hemiGround: 0x363a5e, hemiI: 0.62, sun: 0xffe2cf, sunI: 1.55,
+    exposure: 1.10, grade: { warm: 0.035, cool: 0.07, contrast: 1.045, sat: 1.06 },
+  },
   water: { deep: 0x1d4a66, shallow: 0x3aa6a0, opacity: 0.85, waveAmp: 0.14 },
   fogDensity: 0.0048,
   avatar: { jacket: 0xd97742, pants: 0x3e3a52, skin: 0xd9a066, hat: 0x6b5e8c, pack: 0x4a6b73 },

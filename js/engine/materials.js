@@ -218,6 +218,64 @@ export function applyWind(material, qual) {
 }
 
 // ===========================================================================
+// applyGrade(material, opts) — the FREE cinematic grade, on EVERY tier (low too).
+//
+// The low (Chromebook) tier never builds a composer, so it had no grade at all —
+// which is most of why it read flat. This injects a tiny, branchless tone op into
+// the END of a shared material's fragment shader (after lighting/fog resolve, at
+// <dithering_fragment>) so it costs nothing extra and adds no draw call:
+//   • gentle filmic contrast around mid-grey,
+//   • a warm/cool SPLIT TONE (cool shadows, warm highlights) — the "cinematic"
+//     separation the bible asks for,
+//   • a touch of saturation,
+//   • and a NIGHT response: a uNight uniform (0 day → 1 night) deepens + cools the
+//     whole frame at dusk so noon and night read clearly different even on low
+//     (where there's no composer/bloom to sell it).
+//
+// opts: { warm, cool, contrast, sat } (all from def.light.grade) + getNight() the
+// engine calls each frame. Returns { update(nightFactor) } — call it per frame.
+// Composes onto any existing onBeforeCompile (terrain detail / wind) so it never
+// clobbers another injector.
+// ===========================================================================
+export function applyGrade(material, opts = {}) {
+  const warm = opts.warm ?? 0.05;
+  const cool = opts.cool ?? 0.05;
+  const contrast = opts.contrast ?? 1.05;
+  const sat = opts.sat ?? 1.06;
+  const uniforms = { uNight: { value: 0 } };
+
+  const prev = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev(shader, renderer);
+    shader.uniforms.mmwNight = uniforms.uNight;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float mmwNight;`)
+      .replace('#include <dithering_fragment>', `
+      {
+        vec3 gc = gl_FragColor.rgb;
+        float gl0 = dot(gc, vec3(0.2126,0.7152,0.0722));
+        // filmic contrast around mid-grey
+        gc = (gc - 0.5) * ${contrast.toFixed(4)} + 0.5;
+        // warm/cool split tone: cool the shadows, warm the highlights
+        float hi = smoothstep(0.32, 0.92, gl0);
+        gc += mix(vec3(-0.03,0.0,0.05) * ${cool.toFixed(4)} * 20.0,
+                  vec3(0.05,0.025,-0.04) * ${warm.toFixed(4)} * 20.0, hi);
+        // saturation
+        float gl1 = dot(gc, vec3(0.2126,0.7152,0.0722));
+        gc = mix(vec3(gl1), gc, ${sat.toFixed(4)});
+        // NIGHT: deepen + cool the whole frame so dusk ≠ noon even without a composer
+        gc *= (1.0 - 0.42 * mmwNight);
+        gc = mix(gc, gc * vec3(0.72, 0.82, 1.12), mmwNight * 0.6);
+        gl_FragColor.rgb = clamp(gc, 0.0, 1.0);
+      }
+      #include <dithering_fragment>`);
+  };
+  material.needsUpdate = true;
+  return { uniforms, update(nf) { uniforms.uNight.value = nf || 0; } };
+}
+
+// ===========================================================================
 // makeFaceTexture(palette)
 //   Returns a SHARED tiny (64px) CanvasTexture of two eyes + a mouth, suitable
 //   as a character head map. Cached by a palette key so every NPC with the same

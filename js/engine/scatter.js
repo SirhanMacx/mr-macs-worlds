@@ -17,7 +17,7 @@
 import * as THREE from 'three';
 import { mulberry32, subSeed } from '../core/prng.js';
 import { bakeParts } from './geo-kit.js';
-import { applyWind } from './materials.js';
+import { applyWind, applyGrade } from './materials.js';
 import { QUAL_LOW } from './quality.js';
 
 // ---------- archetype geometry builders (vertex-colored, merged) ----------
@@ -117,7 +117,7 @@ const A = {
   ]),
 };
 
-export function buildScatter(scene, field, def, { isMobile = false, keepout = [], qual = QUAL_LOW } = {}) {
+export function buildScatter(scene, field, def, { isMobile = false, keepout = [], qual = QUAL_LOW, grade = null } = {}) {
   const q = qual || QUAL_LOW;
   const tier = q.tier || 'low';
   // Defensive veg flags (a builder called with a bare {tier} still behaves).
@@ -152,6 +152,11 @@ export function buildScatter(scene, field, def, { isMobile = false, keepout = []
       farFadeMat(m); // composes after wind's onBeforeCompile
     }
   }
+  // FREE cinematic grade + night response on the shared veg materials (every tier
+  // incl. low — composes onto wind/farFade). Makes foliage warm/cool with the
+  // terrain and darken at dusk so trees/bushes don't stay flat & bright at night.
+  const graders = [];
+  if (grade) for (const m of [stdMat, grassMat]) graders.push(applyGrade(m, grade));
 
   const dummy = new THREE.Object3D();
   const meshes = [];
@@ -243,7 +248,11 @@ export function buildScatter(scene, field, def, { isMobile = false, keepout = []
     meshes.forEach(m => { if (m.material === stdMat) m.castShadow = on; });
   }
 
-  return { group, update, setShadows };
+  // night response for the free grade (every tier): foliage deepens + cools at
+  // dusk so the world reads night, not flat-bright-trees-on-a-dark-ground.
+  function setNight(nf) { for (const g of graders) g.update(nf); }
+
+  return { group, update, setShadows, setNight };
 }
 
 // ---------------------------------------------------------------------------

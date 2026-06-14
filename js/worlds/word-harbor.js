@@ -80,9 +80,15 @@ export const def = {
     // bright friendly moon (lit windows + harbor lights read warm under bloom).
     nightZenith: 0x0c1838, nightHorizon: 0x2b3354, fogNight: 0x151f38, moonColor: 0xcdd8f0,
   },
-  light: { hemiSky: 0xd6e8ff, hemiGround: 0x96866a, hemiI: 0.92, sun: 0xfff2dc, sunI: 1.5 },
+  // GRAPHICS OVERHAUL (D1): a gentle, sun-warm harbor — drop the flat fill so the
+  // islands and lamps gain dimension, warm the key so the town reads welcoming
+  // (the lamp-lit "warmth" mood the world is about). Soft, never harsh.
+  light: {
+    hemiSky: 0xc6def8, hemiGround: 0xa08454, hemiI: 0.6, sun: 0xffeec6, sunI: 1.9,
+    exposure: 1.12, grade: { warm: 0.065, cool: 0.045, contrast: 1.045, sat: 1.07 },
+  },
   water: { deep: 0x2a6e86, shallow: 0x5fb8bd, opacity: 0.8, waveAmp: 0.12 },
-  fogDensity: 0.0040,
+  fogDensity: 0.0042,
   avatar: { jacket: 0x4d8f86, pants: 0x55503f, skin: 0xd9a066, hat: 0xd8b27a, pack: 0x9a6a3f },
 
   // ---------------- the seven word-isles ----------------

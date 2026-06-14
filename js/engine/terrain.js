@@ -15,7 +15,7 @@
 // scales per tier (38 / 54 / 64) for crisper silhouettes on capable devices.
 import * as THREE from 'three';
 import { srgbToLinear } from '../core/field-utils.js';
-import { applyTerrainDetail } from './materials.js';
+import { applyTerrainDetail, applyGrade } from './materials.js';
 import { QUAL_LOW } from './quality.js';
 
 // Per-tier segments-per-chunk. The integrator may also pass an explicit `segs`
@@ -23,7 +23,7 @@ import { QUAL_LOW } from './quality.js';
 // picks the density. low stays at today's mobile/desktop range.
 const TIER_SEGS = { low: 38, medium: 54, high: 64 };
 
-export function buildTerrain(scene, field, { size, chunks = 5, segs = null, qual = QUAL_LOW } = {}) {
+export function buildTerrain(scene, field, { size, chunks = 5, segs = null, qual = QUAL_LOW, grade = null } = {}) {
   const q = qual || QUAL_LOW;
   const tier = q.tier || 'low';
   // Resolve segment density: explicit arg > tier table > legacy default.
@@ -40,6 +40,10 @@ export function buildTerrain(scene, field, { size, chunks = 5, segs = null, qual
   // `mat` in place via onBeforeCompile; the per-vertex `aSlope` attribute added
   // below feeds it. Safe to call before any geometry exists.
   const detail = applyTerrainDetail(mat, q);
+  // FREE cinematic grade + night response on the SHARED terrain material (every
+  // tier, low included — composes onto the detail injector). Drives the flat-look
+  // fix on Chromebooks and makes noon ≠ dusk. uNight fed from the engine.
+  const grader = grade ? applyGrade(mat, grade) : { update() {} };
 
   const group = new THREE.Group();
   group.name = 'terrain';
@@ -135,8 +139,10 @@ export function buildTerrain(scene, field, { size, chunks = 5, segs = null, qual
     buildChunk,
     segs: resolvedSegs,  // effective density (so the integrator can report it)
     // detail.update(t) is reserved (terrain detail is currently static) but
-    // safe to call every frame — a no-op on low.
+    // safe to call every frame — a no-op on low. setNight feeds the grade's
+    // night uniform so the terrain deepens + cools at dusk on every tier.
     update(t) { detail.update(t); },
+    setNight(nf) { grader.update(nf); },
     setShadows(on) { group.children.forEach(m => { m.receiveShadow = on; }); },
     dispose() {
       group.children.forEach(m => m.geometry.dispose());

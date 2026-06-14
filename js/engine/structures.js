@@ -471,7 +471,21 @@ export function buildStationMeshes(kind, accentHex, solidMat, qual) {
   const { solid, glow, labelY, r } = builder(accentHex);
   const group = new THREE.Group();
 
-  const solidGeo = bakeParts(solid);
+  // CHEAP CONTACT AO (D1/FIX-4, FREE — every tier): a dark ground disc baked into
+  // the SAME solid geometry (merged in = NO extra draw call) so the structure sits
+  // IN the world instead of floating. It's a filled circle the size of the
+  // structure footprint, sitting just above the terrain — most of it is hidden
+  // UNDER the building's own base, and the bit that peeks out past the walls reads
+  // as a soft ground-shadow pool. Kept a dark warm grey (not pure black) so the
+  // outer edge isn't a hard manhole. This is the cheap proxy for the screen-space
+  // AO we dropped from the high composer to hold the ≤180 draw-call budget.
+  const aoRing = new THREE.CircleGeometry(r * 0.92, 20);
+  aoRing.rotateX(-Math.PI / 2);
+  const solidWithAO = [
+    { geo: aoRing, color: 0x2a2620, y: 0.05 },   // dark contact pool under the building
+    ...solid,
+  ];
+  const solidGeo = bakeParts(solidWithAO);
   const solidMesh = new THREE.Mesh(solidGeo, solidMat);
   solidMesh.castShadow = false;
   group.add(solidMesh);
@@ -480,8 +494,25 @@ export function buildStationMeshes(kind, accentHex, solidMat, qual) {
   let glowParts = null;
   if (glow && glow.length) {
     const glowGeo = bakeParts(glow);
-    glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.92 });
+    // BLACK-BOX FIX (graphics overhaul D0): this accent mesh (windows, lanterns,
+    // fires) was a TRANSPARENT but DEPTH-WRITING MeshBasicMaterial with default
+    // NormalBlending. A transparent, depth-writing mesh z-fights into a dark
+    // rectangle (worst against a dusk sky) and occludes whatever is behind it —
+    // the "black box" artifact. Additive blending + depthWrite:false make the
+    // accent read as actual emissive light (it only ever ADDS to the frame, never
+    // subtracts) and stop it from punching a hole in the depth buffer. depthTest
+    // stays ON so the glow is still correctly hidden behind solid walls. This is
+    // strictly cheaper AND is the prerequisite for the night-glow win (D2).
+    glowMat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.92,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: true,
+    });
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    glowMesh.renderOrder = 1; // draw after opaque so additive composites correctly
     group.add(glowMesh);
     glowParts = glow;
   }

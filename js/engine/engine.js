@@ -53,8 +53,21 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
   THREE.ColorManagement.enabled = true;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;     // OutputPass also reads this on medium/high
-  renderer.toneMappingExposure = 1.06;
+  // Per-biome exposure (D1, free, every tier): each world authors def.light.exposure
+  // so the warm ACES tone is tuned to its mood (Trade Winds runs a touch hotter for
+  // a sun-baked Mediterranean key). Falls back to the prior 1.06 if unauthored.
+  renderer.toneMappingExposure = (def.light && typeof def.light.exposure === 'number') ? def.light.exposure : 1.06;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  // ---- per-frame draw-call accounting (PERF HOOK) -------------------------
+  // The composer's OutputPass (and any extra full-screen passes) call
+  // renderer.render() internally, which by default RESETS renderer.info each
+  // call — so renderer.info.render.calls would only report the LAST render
+  // (the OutputPass quad) instead of the whole frame (scene + composer +
+  // reflection + shadow). We turn autoReset OFF and reset ONCE at the very top
+  // of the animate loop, so window.MMW.info().calls is the TRUE per-frame total
+  // across every pass. (Costs nothing; just changes when the counter zeroes.)
+  renderer.info.autoReset = false;
 
   renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -96,6 +109,7 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
     chunks: 5,
     segs: isMobile ? 38 : null,
     qual,
+    grade: def.light && def.light.grade,   // free cinematic grade + night (all tiers)
   });
   let done = 0;
   for (const job of terrain.jobs) {
@@ -119,7 +133,7 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
     ...def.skills.map(s => ({ x: s.pos[0], z: s.pos[1], r: 15 })),
     { x: def.spawn[0], z: def.spawn[1], r: 10 },
   ];
-  const scatter = buildScatter(scene, field, def, { isMobile, keepout, qual });
+  const scatter = buildScatter(scene, field, def, { isMobile, keepout, qual, grade: def.light && def.light.grade });
   await nextFrame();
 
   onProgress(0.86, 'Waking the explorer…');
@@ -311,6 +325,12 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
 
   function animate() {
     requestAnimationFrame(animate);
+    // Zero the renderer's draw-call/triangle counters ONCE per frame (autoReset
+    // is off — set above). Every render() this frame — the reflection pass, the
+    // shadow pass, the scene RenderPass and every composer full-screen pass —
+    // then accumulates into renderer.info, so window.MMW.info().calls reflects
+    // the WHOLE frame, not just the final OutputPass.
+    renderer.info.reset();
     const dtRaw = clock.getDelta();
     const dt = Math.min(dtRaw, 0.05);
     frame++;
@@ -337,8 +357,13 @@ export async function createEngine(def, content, { onProgress = () => {} } = {})
     if (!reducedMotion) scatter.update(worldT);
     if (motes) motes.update(worldT);
 
-    // feed the sky's night factor to the structures' window/lantern glow
-    stations.setNight(sky.getNightFactor());
+    // feed the sky's night factor to the structures' window/lantern glow AND to
+    // the free terrain/scatter grade (so the whole world deepens + cools at dusk
+    // on every tier — the noon≠dusk win, no composer required).
+    const nf = sky.getNightFactor();
+    stations.setNight(nf);
+    terrain.setNight(nf);
+    scatter.setNight(nf);
 
     const active = stations.update(worldT, player.pos, camera.position);
     hud.setPrompt(paused ? null : active);

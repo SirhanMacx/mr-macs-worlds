@@ -15,7 +15,22 @@ import * as THREE from 'three';
 import { makeLabel } from '../engine/geo-kit.js';
 import { makeFaceTexture } from '../engine/materials.js';
 
-const CULL_D = 80;
+// REGION/CITY-SCOPED NPC CULLING (draw-call budget, graphics-overhaul fix).
+// Each NPC group is ~8 meshes + a label sprite, so a clustered city's worth of
+// characters can blow the per-frame draw-call ceiling on its own. We cull on TWO
+// axes so density can scale (the planned NPC jump) without busting the budget:
+//   (1) DISTANCE: hard cull beyond CULL_D[tier] — tighter on low (Chromebook).
+//   (2) COUNT (city/region scope): even within range, only the MAX_VISIBLE[tier]
+//       NEAREST NPCs draw each frame; the rest are hidden entirely. So no matter
+//       how many NPCs a pack adds to a city, only a bounded handful ever draw —
+//       the ones the player is actually standing among. Labels cull tighter still.
+const CULL_D = { low: 44, medium: 72, high: 88 };
+// Hard cap on simultaneously-DRAWN NPCs per tier. The nearest N win; far ones
+// (even if in CULL_D range) are fully hidden = zero draw-call cost. This is the
+// city/region scope: a town never draws more than this regardless of its size.
+const MAX_VISIBLE = { low: 3, medium: 9, high: 14 };
+// Labels are an extra sprite (one draw call each) — cull them tighter than bodies.
+const LABEL_D = { low: 34, medium: 46, high: 55 };
 
 // Safe default — createNPCSystem/createPackAnimal called WITHOUT qual behaves
 // as the low (Chromebook) tier.
@@ -23,13 +38,16 @@ const LOW_QUAL = { tier: 'low', face: false, shadows: false };
 function resolveNpcQual(qual) {
   const q = qual || LOW_QUAL;
   const tier = q.tier || 'low';
-  if (tier === 'low') return { tier: 'low', med: false, face: false, shadows: false };
+  if (tier === 'low') return { tier: 'low', med: false, face: false, shadows: false, cullD: CULL_D.low, maxVis: MAX_VISIBLE.low, labelD: LABEL_D.low };
   const high = tier === 'high';
   return {
     tier,
     med: true,
     face: q.face ?? true,
     shadows: high ? (q.shadows ?? false) : false,
+    cullD: CULL_D[tier] || CULL_D.medium,
+    maxVis: MAX_VISIBLE[tier] || MAX_VISIBLE.medium,
+    labelD: LABEL_D[tier] || LABEL_D.medium,
   };
 }
 
@@ -52,6 +70,37 @@ const HATS = {
 
 function std(hex) { return new THREE.MeshStandardMaterial({ color: hex, roughness: 0.85, metalness: 0, flatShading: true }); }
 
+// --- low-tier merged-body helpers -------------------------------------------
+// A capsule positioned in the group's local space (x offset + y center), used to
+// bake a whole NPC body (torso + stubby limbs) into ONE geometry on the low tier
+// so a crowd costs ~⅓ the draw calls. radius, halfHeight (cylinder part), yMid,
+// xOff. Returns a translated, non-indexed BufferGeometry with normals.
+function capsuleGeo(r, halfLen, yMid, xOff = 0) {
+  const g = new THREE.CapsuleGeometry(r, halfLen, 2, 6);
+  g.translate(xOff, yMid, 0);
+  return g.toNonIndexed();
+}
+// Merge position+normal of several non-indexed geometries into one (single draw
+// call). No vertex colors (the body uses one solid material).
+function mergeGeos(geos) {
+  let total = 0;
+  for (const g of geos) total += g.attributes.position.count;
+  const pos = new Float32Array(total * 3);
+  const nor = new Float32Array(total * 3);
+  let off = 0;
+  for (const g of geos) {
+    pos.set(g.attributes.position.array, off * 3);
+    nor.set(g.attributes.normal.array, off * 3);
+    off += g.attributes.position.count;
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  out.computeBoundingSphere();
+  return out;
+}
+
 export function createNPCSystem(scene, field, camera, { qual } = {}) {
   const npcs = [];
   const Q = resolveNpcQual(qual);
@@ -66,39 +115,66 @@ export function createNPCSystem(scene, field, camera, { qual } = {}) {
     const skin = std(skinHex);
     const hatM = std(p.hat ?? p.trim ?? 0x4a3b28);
 
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 0.55, 3, 8), robe);
-    body.position.y = 1.0;
+    // LOW-TIER SIMPLIFIED NPC (draw-call budget): on the low (Chromebook) tier a
+    // crowd's worth of fully-articulated NPCs (body+head+2 arms+2 legs+hat+blob =
+    // ~8 draw calls each) blows the ceiling. So on low each NPC is built from
+    // THREE meshes — a single merged body-with-baked-limbs, a head, and the
+    // contact blob — animated with a gentle whole-body bob/sway instead of limb
+    // swing. medium/high keep the articulated rig (limbs are separate, animated).
+    // Same silhouette, ~⅓ the draw calls where it matters most.
+    const lowBody = !Q.med;
 
-    // head: smoother segs on medium+; the SHARED face texture (cached by the
-    // skin/eye/mouth palette key) maps onto it so a town of NPCs sharing a skin
-    // tone shares ONE GPU texture — not one per NPC. Only the head gets a cloned
-    // material (so the map doesn't bleed onto the shared body skin material).
-    let headMat = skin;
-    if (Q.med && Q.face) {
-      headMat = skin.clone();
-      headMat.map = makeFaceTexture({ eye: 0x1a1a22, mouth: 0x6e3a32, blush: skinHex });
-      headMat.flatShading = false;
-      headMat.needsUpdate = true;
+    let body, head, armL = null, armR = null, legL = null, legR = null;
+
+    if (lowBody) {
+      // one merged mesh: torso + head-stub-neck + two stubby arms + two stubby
+      // legs, all baked into a single BufferGeometry sharing the robe material.
+      // (The head sphere is a separate mesh so it can keep the skin tone + turn.)
+      const parts = [
+        capsuleGeo(0.3, 0.55, 1.0),                 // torso
+        capsuleGeo(0.075, 0.34, 1.18, -0.36),       // left arm (down at side)
+        capsuleGeo(0.075, 0.34, 1.18, 0.36),        // right arm
+        capsuleGeo(0.1, 0.32, 0.5, -0.12),          // left leg
+        capsuleGeo(0.1, 0.32, 0.5, 0.12),           // right leg
+      ];
+      const merged = mergeGeos(parts);
+      body = new THREE.Mesh(merged, robe);
+      body.position.y = 0;
+      head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 9, 7), skin);
+      head.position.y = 1.62;
+      g.add(body, head);
+    } else {
+      body = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 0.55, 3, 8), robe);
+      body.position.y = 1.0;
+
+      // head: smoother segs on medium+; the SHARED face texture (cached by the
+      // skin/eye/mouth palette key) maps onto it so a town of NPCs sharing a skin
+      // tone shares ONE GPU texture — not one per NPC. Only the head gets a cloned
+      // material (so the map doesn't bleed onto the shared body skin material).
+      let headMat = skin;
+      if (Q.face) {
+        headMat = skin.clone();
+        headMat.map = makeFaceTexture({ eye: 0x1a1a22, mouth: 0x6e3a32, blush: skinHex });
+        headMat.flatShading = false;
+        headMat.needsUpdate = true;
+      }
+      head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 13, 10), headMat);
+      head.position.y = 1.62;
+      if (headMat.map) head.rotation.y = Math.PI; // painted hemisphere faces forward (-z)
+      g.add(body, head);
+
+      const armGeo = new THREE.CapsuleGeometry(0.075, 0.32, 2, 6);
+      armGeo.translate(0, -0.22, 0);
+      armL = new THREE.Mesh(armGeo, trim); armL.position.set(-0.36, 1.3, 0);
+      armR = new THREE.Mesh(armGeo.clone(), trim); armR.position.set(0.36, 1.3, 0);
+      g.add(armL, armR);
+
+      const legGeo = new THREE.CapsuleGeometry(0.1, 0.3, 2, 6);
+      legGeo.translate(0, -0.24, 0);
+      legL = new THREE.Mesh(legGeo, trim); legL.position.set(-0.12, 0.58, 0);
+      legR = new THREE.Mesh(legGeo.clone(), trim); legR.position.set(0.12, 0.58, 0);
+      g.add(legL, legR);
     }
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.21, Q.med ? 13 : 9, Q.med ? 10 : 7),
-      headMat
-    );
-    head.position.y = 1.62;
-    if (headMat.map) head.rotation.y = Math.PI; // painted hemisphere faces forward (-z)
-    g.add(body, head);
-
-    const armGeo = new THREE.CapsuleGeometry(0.075, 0.32, 2, 6);
-    armGeo.translate(0, -0.22, 0);
-    const armL = new THREE.Mesh(armGeo, trim); armL.position.set(-0.36, 1.3, 0);
-    const armR = new THREE.Mesh(armGeo.clone(), trim); armR.position.set(0.36, 1.3, 0);
-    g.add(armL, armR);
-
-    const legGeo = new THREE.CapsuleGeometry(0.1, 0.3, 2, 6);
-    legGeo.translate(0, -0.24, 0);
-    const legL = new THREE.Mesh(legGeo, trim); legL.position.set(-0.12, 0.58, 0);
-    const legR = new THREE.Mesh(legGeo.clone(), trim); legR.position.set(0.12, 0.58, 0);
-    g.add(legL, legR);
 
     let hat = null;
     const hatFn = HATS[spec.hatKind || 'none'];
@@ -160,16 +236,42 @@ export function createNPCSystem(scene, field, camera, { qual } = {}) {
   }
 
   const V = new THREE.Vector3();
+  // scratch list reused each frame (no per-frame allocation) for the nearest-N
+  // selection that implements the city/region count cull.
+  const _candidates = [];
   function update(dt, t, playerPos) {
+    const cullD2 = Q.cullD * Q.cullD;
+    const labelD2 = Q.labelD * Q.labelD;
+    // ---- pass 1: distance-cull every NPC and collect the in-range ones ----
+    _candidates.length = 0;
     for (const n of npcs) {
-      // distance cull (also culls the label)
       const dx = camera.position.x - n.group.position.x;
       const dz = camera.position.z - n.group.position.z;
       const camD2 = dx * dx + dz * dz;
-      const vis = camD2 < CULL_D * CULL_D && !n.hidden;
-      n.group.visible = vis;
-      if (n.label) n.label.visible = vis && camD2 < 55 * 55;
-      if (!vis) continue;
+      n._camD2 = camD2;
+      if (camD2 < cullD2 && !n.hidden) {
+        _candidates.push(n);
+      } else {
+        n.group.visible = false;
+        if (n.label) n.label.visible = false;
+      }
+    }
+    // ---- pass 2: city/region count cull — only the nearest maxVis DRAW ----
+    // Sorting the (small) candidate list each frame is cheap and guarantees a
+    // bounded NPC draw-call cost no matter how dense a pack makes a city.
+    if (_candidates.length > Q.maxVis) {
+      _candidates.sort((a, b) => a._camD2 - b._camD2);
+      for (let i = Q.maxVis; i < _candidates.length; i++) {
+        _candidates[i].group.visible = false;
+        if (_candidates[i].label) _candidates[i].label.visible = false;
+      }
+      _candidates.length = Q.maxVis;
+    }
+    // ---- pass 3: animate/visualise only the surviving (drawn) NPCs ----
+    for (const n of _candidates) {
+      const camD2 = n._camD2;
+      n.group.visible = true;
+      if (n.label) n.label.visible = camD2 < labelD2;
 
       const pdx = playerPos.x - n.group.position.x;
       const pdz = playerPos.z - n.group.position.z;
@@ -211,7 +313,22 @@ export function createNPCSystem(scene, field, camera, { qual } = {}) {
 
       // animation: walk swing / idle sway / talk gesture
       n.phase += dt * (n.moving ? 7 : 1.6);
-      if (n.moving) {
+      if (!n.armL) {
+        // LOW-TIER merged body: no separate limbs to swing. Convey motion with a
+        // whole-body bob (walking) or a gentle breathing sway (idle), plus the
+        // head turn — cheap, and reads fine at the distances low NPCs sit.
+        if (n.moving) {
+          n.body.position.y = Math.abs(Math.sin(n.phase)) * 0.06;
+          n.body.rotation.z = Math.sin(n.phase) * 0.05;
+        } else {
+          const s = Math.sin(n.phase) * 0.045;
+          n.body.position.y = 0;
+          n.body.rotation.z = 0;
+          n.body.scale.y = 1 + s * 0.5;
+        }
+        n.head.position.y = 1.62 + (n.moving ? Math.abs(Math.sin(n.phase)) * 0.06 : 0) + (n.talking ? Math.sin(t * 6) * 0.012 : 0);
+        n.head.rotation.y = Math.sin(t * 0.4 + n.phase) * 0.4;
+      } else if (n.moving) {
         const s = Math.sin(n.phase) * 0.5;
         n.legL.rotation.x = s; n.legR.rotation.x = -s;
         n.armL.rotation.x = -s * 0.7; n.armR.rotation.x = s * 0.7;

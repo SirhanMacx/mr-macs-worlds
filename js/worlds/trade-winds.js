@@ -64,9 +64,18 @@ export const def = {
     // A warm-Mediterranean night — deep indigo zenith, sandstone-warm horizon.
     nightZenith: 0x0b1736, nightHorizon: 0x24304f, fogNight: 0x141e34, moonColor: 0xc7d2ee,
   },
-  light: { hemiSky: 0xcfe5ff, hemiGround: 0x8a7a5c, hemiI: 0.85, sun: 0xfff0d8, sunI: 1.6 },
+  // GRAPHICS OVERHAUL (D1, free on every tier): the old high-key fill (hemiI .85)
+  // washed shadows flat so nothing read dimensional. Split a WARM key sun (raised
+  // to 2.05, pushed amber) against a deeper, cooler, dimmer sky fill (hemiI .56,
+  // cooler hemiSky / warmer-earth hemiGround) so Trade Winds grass and dunes get
+  // real form + warm/cool separation. `exposure` + `grade` are read by the engine
+  // for the low-tier in-material warm tone (no composer). All pure constants.
+  light: {
+    hemiSky: 0xb9d4ff, hemiGround: 0x9c7a4a, hemiI: 0.56, sun: 0xffe7b8, sunI: 2.05,
+    exposure: 1.12, grade: { warm: 0.06, cool: 0.05, contrast: 1.05, sat: 1.07 },
+  },
   water: { deep: 0x1f5a72, shallow: 0x46a3b0, opacity: 0.84, waveAmp: 0.16 },
-  fogDensity: 0.0042,
+  fogDensity: 0.0046,
   avatar: { jacket: 0x33658a, pants: 0x4a4339, skin: 0xd9a066, hat: 0xc9a36b, pack: 0x8a5a33 },
 
   // ---------------- learning layer ----------------
