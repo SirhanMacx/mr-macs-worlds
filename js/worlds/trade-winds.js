@@ -59,6 +59,10 @@ export const def = {
     zenithDay: 0x3f74b5, horizonDay: 0xdfe7d9, fogDay: 0xc9d8d6,
     zenithDusk: 0x35518f, horizonDusk: 0xf2c98e, fogDusk: 0xd9c4a8,
     sunColor: 0xfff2da, cycleSec: 660, sunAzim: 2.05, sunElev: [0.38, 0.72],
+    // graphics overhaul: additive night-phase mood (medium+ night cycle; sky.js
+    // derives these if absent, so these are optional polish, never required).
+    // A warm-Mediterranean night — deep indigo zenith, sandstone-warm horizon.
+    nightZenith: 0x0b1736, nightHorizon: 0x24304f, fogNight: 0x141e34, moonColor: 0xc7d2ee,
   },
   light: { hemiSky: 0xcfe5ff, hemiGround: 0x8a7a5c, hemiI: 0.85, sun: 0xfff0d8, sunI: 1.6 },
   water: { deep: 0x1f5a72, shallow: 0x46a3b0, opacity: 0.84, waveAmp: 0.16 },

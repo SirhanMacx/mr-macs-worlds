@@ -3,8 +3,32 @@
 // at a glance. Each builder returns two baked geometries: `solid` (one
 // vertex-colored draw) and `glow` (additive accent — windows, fires, lamps —
 // whose material brightens when the station is cleared).
+//
+// GRAPHICS OVERHAUL (Module F): the additive `glow` accent (windows, lanterns,
+// fires) is now also driven by the sky's NIGHT FACTOR — at dusk/night the
+// windows light up. The night factor flows in from sky.js through the engine
+// (the integrator wires the value); structures just exposes a `glow.setState`.
+//   low    : glow opacity lifts with night (no composer, so it just reads
+//            brighter — still cheap, no new draw call)
+//   medium+: the bloom pass turns that lift into a soft halo (handled by the
+//            composer in postfx.js; nothing extra to do here)
+//   high   : OPTIONAL fake-lantern terrain lift — a few point-source uniforms
+//            injected into the SHARED solid material via onBeforeCompile add a
+//            warm pool of light at the windows at night. No real lights, capped
+//            to a small N so it never costs a draw call or a shadow pass.
 import * as THREE from 'three';
 import { bakeParts } from './geo-kit.js';
+
+// Safe default — buildStationMeshes called WITHOUT qual behaves as low.
+const LOW_QUAL = { tier: 'low', lanternLift: false };
+function resolveStructQual(qual) {
+  const q = qual || LOW_QUAL;
+  const tier = q.tier || 'low';
+  if (tier === 'high') return { tier, lanternLift: q.lanternLift ?? true };
+  return { tier, lanternLift: false };
+}
+
+const MAX_LANTERNS = 4; // small N — uniform-array fake lights, high tier only
 
 const B = THREE.BoxGeometry, Cy = THREE.CylinderGeometry, Co = THREE.ConeGeometry,
   Sp = THREE.SphereGeometry, Ic = THREE.IcosahedronGeometry, Oc = THREE.OctahedronGeometry,
@@ -429,8 +453,20 @@ export const BUILDERS = {
   },
 };
 
-// Build a station's meshes. Returns { group, glowMat, labelY, r }.
-export function buildStationMeshes(kind, accentHex, solidMat) {
+// Build a station's meshes.
+// Returns { group, glowMat, glow, labelY, r } where:
+//   glowMat   — the additive accent material (kept for back-compat; stations.js
+//               may still read it). MAY be null if a station has no glow parts.
+//   glow      — a small CONTROLLER: glow.setState(done, nightFactor) sets the
+//               accent brightness/color from the cleared flag AND the sky night
+//               factor (0 day → 1 night). Always present (no-op if no glow).
+//
+// The optional 4th arg `qual` is read DEFENSIVELY: omitted → low (today). On the
+// high tier with qual.lanternLift, a few uniform "fake lanterns" are injected
+// into the SHARED `solidMat` (onBeforeCompile) so window pools warm the nearby
+// walls at night — no real lights, no new material, no draw call.
+export function buildStationMeshes(kind, accentHex, solidMat, qual) {
+  const q = resolveStructQual(qual);
   const builder = BUILDERS[kind] || BUILDERS.gateway;
   const { solid, glow, labelY, r } = builder(accentHex);
   const group = new THREE.Group();
@@ -441,11 +477,102 @@ export function buildStationMeshes(kind, accentHex, solidMat) {
   group.add(solidMesh);
 
   let glowMat = null;
+  let glowParts = null;
   if (glow && glow.length) {
     const glowGeo = bakeParts(glow);
     glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.92 });
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
     group.add(glowMesh);
+    glowParts = glow;
   }
-  return { group, glowMat, labelY, r };
+
+  // Cleared-state gold tint (mirrors stations.js GOLD). Kept here so the
+  // controller owns the full glow appearance.
+  const GOLD = 0xffd166;
+
+  // Optional high-only fake-lantern lift on the shared solid material. We attach
+  // per-instance lantern world positions onto the group so the integrator/engine
+  // (which knows the station world transform) can feed them; if it doesn't, the
+  // uniforms stay zero-strength and the injection is a harmless no-op.
+  let lanternUniforms = null;
+  if (q.lanternLift && glowParts) {
+    lanternUniforms = installLanternLift(solidMat);
+    // seed lantern LOCAL positions from the brightest glow parts (windows/lamps)
+    group.userData.lanternLocal = glowParts
+      .slice(0, MAX_LANTERNS)
+      .map(p => new THREE.Vector3(p.x || 0, p.y || 0, p.z || 0));
+    group.userData.lanternUniforms = lanternUniforms;
+  }
+
+  // The glow controller: combine cleared-state with sky night factor. At night,
+  // unlit windows still come alive (people are home); a cleared station reads
+  // gold + a touch brighter. Pure material-uniform writes — no allocation.
+  // (Named glowCtl to avoid shadowing the destructured `glow` parts array above.)
+  const glowCtl = {
+    setState(done, nightFactor = 0) {
+      if (!glowMat) return;
+      const nf = THREE.MathUtils.clamp(nightFactor, 0, 1);
+      // Day base ~0.85 (unlit) / 1.0 (cleared); night lifts the floor so windows
+      // glow even when uncleared. Bloom (medium+) turns this lift into a halo.
+      const base = done ? 1.0 : 0.85;
+      glowMat.opacity = Math.min(1, base + nf * (done ? 0.0 : 0.18));
+      glowMat.color.set(done ? GOLD : 0xffffff);
+      // Drive the optional fake-lantern strength with night (high only).
+      if (lanternUniforms) lanternUniforms.uLanternStrength.value = nf * (done ? 1.15 : 1.0);
+    },
+  };
+
+  return { group, glowMat, glow: glowCtl, labelY, r };
+}
+
+// installLanternLift(solidMat): inject up to MAX_LANTERNS warm point-pools into
+// the SHARED solid material. World-space lantern positions + a global strength
+// uniform are written by the engine each frame (or left zero = no-op). This is a
+// pure additive term in the fragment shader; zero strength = byte-identical look.
+function installLanternLift(mat) {
+  const uniforms = {
+    uLanternStrength: { value: 0.0 },
+    uLanternPos: { value: Array.from({ length: MAX_LANTERNS }, () => new THREE.Vector3(1e6, 1e6, 1e6)) },
+    uLanternColor: { value: new THREE.Color(0xffcaa0) },
+    uLanternRadius: { value: 6.5 },
+  };
+  // Don't clobber an existing onBeforeCompile (terrain detail etc. patch other
+  // materials, but the station solid material is dedicated, so a single hook is
+  // fine). Guard anyway so a double-call is safe.
+  if (mat.userData._mmwLantern) return mat.userData._mmwLantern;
+  mat.userData._mmwLantern = uniforms;
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uLanternStrength = uniforms.uLanternStrength;
+    shader.uniforms.uLanternPos = uniforms.uLanternPos;
+    shader.uniforms.uLanternColor = uniforms.uLanternColor;
+    shader.uniforms.uLanternRadius = uniforms.uLanternRadius;
+
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vMmwLanternWorld;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vMmwLanternWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uLanternStrength;
+        uniform vec3  uLanternPos[${MAX_LANTERNS}];
+        uniform vec3  uLanternColor;
+        uniform float uLanternRadius;
+        varying vec3  vMmwLanternWorld;`)
+      // add a warm falloff pool near each lantern, just before final dither.
+      .replace('#include <dithering_fragment>', `
+      if (uLanternStrength > 0.001) {
+        float lit = 0.0;
+        for (int i = 0; i < ${MAX_LANTERNS}; i++) {
+          float d = distance(vMmwLanternWorld, uLanternPos[i]);
+          lit += (1.0 - smoothstep(0.0, uLanternRadius, d));
+        }
+        gl_FragColor.rgb += uLanternColor * lit * uLanternStrength * 0.5;
+      }
+      #include <dithering_fragment>`);
+  };
+  mat.needsUpdate = true;
+  return uniforms;
 }

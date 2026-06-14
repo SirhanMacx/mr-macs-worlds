@@ -75,6 +75,10 @@ export const def = {
     zenithDay: 0x4a86c8, horizonDay: 0xfdebd2, fogDay: 0xdfe3d8,
     zenithDusk: 0x3b5a9e, horizonDusk: 0xf7cf9e, fogDusk: 0xe4cdb4,
     sunColor: 0xfff4de, cycleSec: 780, sunAzim: 1.8, sunElev: [0.42, 0.74],
+    // graphics overhaul: additive night-phase mood (medium+; derived if absent).
+    // A welcoming harbor night — soft navy zenith, lamp-warm horizon glow, a
+    // bright friendly moon (lit windows + harbor lights read warm under bloom).
+    nightZenith: 0x0c1838, nightHorizon: 0x2b3354, fogNight: 0x151f38, moonColor: 0xcdd8f0,
   },
   light: { hemiSky: 0xd6e8ff, hemiGround: 0x96866a, hemiI: 0.92, sun: 0xfff2dc, sunI: 1.5 },
   water: { deep: 0x2a6e86, shallow: 0x5fb8bd, opacity: 0.8, waveAmp: 0.12 },

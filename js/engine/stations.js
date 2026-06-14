@@ -9,7 +9,10 @@ import * as Progress from '../learn/progress.js';
 
 const GOLD = 0xffd166;
 
-export function buildStations(scene, field, def) {
+// Safe default — buildStations called WITHOUT qual behaves as low (today).
+const LOW_QUAL = { tier: 'low', lanternLift: false };
+
+export function buildStations(scene, field, def, { qual = LOW_QUAL } = {}) {
   const group = new THREE.Group();
   group.name = 'stations';
   scene.add(group);
@@ -17,13 +20,33 @@ export function buildStations(scene, field, def) {
   const solidMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.04, flatShading: true });
   const list = [];
 
+  // Sky night factor (0 day → 1 night). The integrator wires the live value
+  // through setNight() each frame; stays 0 (day) until then, so a caller that
+  // never calls setNight gets today's daytime look.
+  let nightFactor = 0;
+  // Accumulated lantern world positions (high-tier fake-lantern lift only).
+  let lanternUniforms = null;     // the single shared solidMat uniform block
+  const lanternWorld = [];        // THREE.Vector3[] in world space
+
   function add(spec) {
     const [x, z] = spec.posXZ;
     const y = field.height(x, z);
-    const { group: g, glowMat, labelY, r } = buildStationMeshes(spec.stationKind, spec.color, solidMat);
+    const { group: g, glowMat, glow, labelY, r } = buildStationMeshes(spec.stationKind, spec.color, solidMat, qual);
     g.position.set(x, y, z);
     if (spec.faceCenter !== false) g.rotation.y = Math.atan2(x - 0, z - 0) + Math.PI; // face the world center
     group.add(g);
+
+    // collect this station's lantern WORLD positions (high tier only). The
+    // builder stored LOCAL window positions on g.userData; transform them by the
+    // station's now-final world matrix. We cap at the material's MAX_LANTERNS
+    // (the few nearest the player matter; first stations win — fine for a town).
+    if (g.userData.lanternUniforms) {
+      lanternUniforms = g.userData.lanternUniforms; // same shared block for all
+      g.updateMatrixWorld(true);
+      for (const lp of (g.userData.lanternLocal || [])) {
+        lanternWorld.push(lp.clone().applyMatrix4(g.matrixWorld));
+      }
+    }
 
     const labelSprite = makeLabel(spec.label, spec.sub || '', '#' + spec.color.toString(16).padStart(6, '0'));
     labelSprite.position.set(x, y + labelY, z);
@@ -33,7 +56,7 @@ export function buildStations(scene, field, def) {
     const st = {
       ...spec,
       pos: new THREE.Vector3(x, y, z),
-      mesh: g, glowMat, labelSprite, labelY, interactR: Math.max(r, 7),
+      mesh: g, glowMat, glow, labelSprite, labelY, interactR: Math.max(r, 7),
     };
     list.push(st);
     return st;
@@ -95,7 +118,12 @@ export function buildStations(scene, field, def) {
   function refreshVisuals() {
     list.forEach((st, i) => {
       const done = clearedOf(st);
-      if (st.glowMat) {
+      // Drive the glow through the structures controller (combines cleared-state
+      // with the live sky night factor). Falls back to the raw material if a
+      // station predates the controller, so this is back-compat safe.
+      if (st.glow) {
+        st.glow.setState(done, nightFactor);
+      } else if (st.glowMat) {
         st.glowMat.opacity = done ? 1 : 0.85;
         st.glowMat.color.set(done ? GOLD : 0xffffff); // tints vertex colors gold when cleared
       }
@@ -103,6 +131,30 @@ export function buildStations(scene, field, def) {
     });
     rings.instanceColor.needsUpdate = true;
     retarget();
+  }
+
+  // setNight(nf): the integrator feeds sky.js's night factor (0 day → 1 night)
+  // here each frame (or whenever it changes). Windows/lanterns light up at dusk;
+  // on medium+ the bloom pass turns the lift into a halo; on high the fake-
+  // lantern terrain lift warms the nearby walls. No-op cost on low beyond a few
+  // material-opacity writes. Defaults to 0 (day) so an unwired caller is safe.
+  function setNight(nf) {
+    nf = THREE.MathUtils.clamp(nf || 0, 0, 1);
+    if (nf === nightFactor) return;
+    nightFactor = nf;
+    // re-apply glow state with the new night factor (cheap: a few writes)
+    list.forEach((st) => {
+      if (st.glow) st.glow.setState(clearedOf(st), nightFactor);
+    });
+    // feed the shared fake-lantern uniforms (high tier only; null otherwise)
+    if (lanternUniforms) {
+      const pos = lanternUniforms.uLanternPos.value;
+      for (let i = 0; i < pos.length; i++) {
+        if (i < lanternWorld.length) pos[i].copy(lanternWorld[i]);
+        else pos[i].set(1e6, 1e6, 1e6); // park unused slots far away
+      }
+      lanternUniforms.uLanternStrength.value = nightFactor;
+    }
   }
 
   function retarget() {
@@ -179,6 +231,7 @@ export function buildStations(scene, field, def) {
 
   return {
     list, update, refreshVisuals, guideTo, retarget, addExtra, removeExtra, setBeacon,
+    setNight,
     get beaconTarget() { return beaconTarget; },
     clearedOf,
   };

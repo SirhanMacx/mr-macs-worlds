@@ -2,10 +2,36 @@
 // capsule bodies, transform-keyed idle/walk/talk animation, palette + hat
 // variety. NPCs farther than CULL_D from the camera are hidden so a town's
 // worth of characters never blows the draw-call budget.
+//
+// GRAPHICS TIERS (read defensively — callers may pass no `qual`, in which case
+// we behave exactly as the shipped low path):
+//   low    capsule + round blob (today, unchanged)
+//   medium + a SHARED canvas face texture on the head (cached by palette so a
+//            crowd shares one GPU texture, not one-per-NPC), smoother head segs,
+//            an OVAL blob tinted toward the ground color
+//   high   + real shadow casting on NPC bodies (only if qual.shadows)
+// Distance culling (CULL_D) is unchanged on every tier.
 import * as THREE from 'three';
 import { makeLabel } from '../engine/geo-kit.js';
+import { makeFaceTexture } from '../engine/materials.js';
 
 const CULL_D = 80;
+
+// Safe default — createNPCSystem/createPackAnimal called WITHOUT qual behaves
+// as the low (Chromebook) tier.
+const LOW_QUAL = { tier: 'low', face: false, shadows: false };
+function resolveNpcQual(qual) {
+  const q = qual || LOW_QUAL;
+  const tier = q.tier || 'low';
+  if (tier === 'low') return { tier: 'low', med: false, face: false, shadows: false };
+  const high = tier === 'high';
+  return {
+    tier,
+    med: true,
+    face: q.face ?? true,
+    shadows: high ? (q.shadows ?? false) : false,
+  };
+}
 
 const HATS = {
   none: null,
@@ -26,22 +52,40 @@ const HATS = {
 
 function std(hex) { return new THREE.MeshStandardMaterial({ color: hex, roughness: 0.85, metalness: 0, flatShading: true }); }
 
-export function createNPCSystem(scene, field, camera) {
+export function createNPCSystem(scene, field, camera, { qual } = {}) {
   const npcs = [];
+  const Q = resolveNpcQual(qual);
 
   function addNPC(spec) {
     // spec: {id, name, title, x, z, palette:{robe,trim,skin,hat}, hatKind, face, wander, scale}
     const g = new THREE.Group();
     const p = spec.palette || {};
+    const skinHex = p.skin ?? 0xd9a066;
     const robe = std(p.robe ?? 0x7a6a4f);
     const trim = std(p.trim ?? 0x4a3b28);
-    const skin = std(p.skin ?? 0xd9a066);
+    const skin = std(skinHex);
     const hatM = std(p.hat ?? p.trim ?? 0x4a3b28);
 
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 0.55, 3, 8), robe);
     body.position.y = 1.0;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 9, 7), skin);
+
+    // head: smoother segs on medium+; the SHARED face texture (cached by the
+    // skin/eye/mouth palette key) maps onto it so a town of NPCs sharing a skin
+    // tone shares ONE GPU texture — not one per NPC. Only the head gets a cloned
+    // material (so the map doesn't bleed onto the shared body skin material).
+    let headMat = skin;
+    if (Q.med && Q.face) {
+      headMat = skin.clone();
+      headMat.map = makeFaceTexture({ eye: 0x1a1a22, mouth: 0x6e3a32, blush: skinHex });
+      headMat.flatShading = false;
+      headMat.needsUpdate = true;
+    }
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.21, Q.med ? 13 : 9, Q.med ? 10 : 7),
+      headMat
+    );
     head.position.y = 1.62;
+    if (headMat.map) head.rotation.y = Math.PI; // painted hemisphere faces forward (-z)
     g.add(body, head);
 
     const armGeo = new THREE.CapsuleGeometry(0.075, 0.32, 2, 6);
@@ -60,14 +104,29 @@ export function createNPCSystem(scene, field, camera) {
     const hatFn = HATS[spec.hatKind || 'none'];
     if (hatFn) { hat = hatFn(hatM); g.add(hat); }
 
-    // soft blob shadow
+    // soft contact shadow: round black disc on low; medium+ an OVAL tinted
+    // toward the biome ground color so it reads as a soft contact patch.
+    let blobColor = 0x000000, blobOpacity = 0.26;
+    if (Q.med && field.color) {
+      const c = [0, 0, 0];
+      field.color(spec.x, spec.z, field.height(spec.x, spec.z), 0, c);
+      const _c = new THREE.Color(c[0] * 0.32, c[1] * 0.32, c[2] * 0.32);
+      blobColor = _c; blobOpacity = 0.3;
+    }
     const blob = new THREE.Mesh(
-      new THREE.CircleGeometry(0.5, 12),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false })
+      new THREE.CircleGeometry(0.5, Q.med ? 18 : 12),
+      new THREE.MeshBasicMaterial({ color: blobColor, transparent: true, opacity: blobOpacity, depthWrite: false })
     );
     blob.rotation.x = -Math.PI / 2;
+    if (Q.med) blob.scale.set(1.0, 1.22, 1); // forward-elongated oval
     blob.position.y = 0.06;
     g.add(blob);
+
+    // real shadow casting: high-only, gated by qual.shadows (integrator owns the
+    // shadow map). The blob is never a caster.
+    if (Q.shadows) {
+      g.traverse(o => { if (o.isMesh && o !== blob) o.castShadow = true; });
+    }
 
     const y = field.height(spec.x, spec.z);
     g.position.set(spec.x, y, spec.z);
@@ -178,7 +237,8 @@ export function createNPCSystem(scene, field, camera) {
 
 // ---------- pack animal: the player's caravan, upgraded over the eras ----------
 // kinds: donkey | camel | cart (horse-drawn) — follows ~2.6 units behind.
-export function createPackAnimal(scene, field) {
+export function createPackAnimal(scene, field, { qual } = {}) {
+  const Q = resolveNpcQual(qual);
   let group = null, kind = null, parts = null;
 
   function build(newKind) {
@@ -253,13 +313,26 @@ export function createPackAnimal(scene, field) {
       group.add(parts.cargo);
     }
 
+    // contact shadow: oval + ground-tinted on medium+ (sampled at build time at
+    // the world origin region; the patch scales/rolls under the animal anyway).
+    let blobColor = 0x000000, blobOpacity = 0.24;
+    if (Q.med && field.color) {
+      const c = [0, 0, 0];
+      field.color(0, 0, field.height(0, 0), 0, c);
+      blobColor = new THREE.Color(c[0] * 0.34, c[1] * 0.34, c[2] * 0.34);
+      blobOpacity = 0.28;
+    }
     const blob = new THREE.Mesh(
-      new THREE.CircleGeometry(0.7, 12),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.24, depthWrite: false })
+      new THREE.CircleGeometry(0.7, Q.med ? 18 : 12),
+      new THREE.MeshBasicMaterial({ color: blobColor, transparent: true, opacity: blobOpacity, depthWrite: false })
     );
     blob.rotation.x = -Math.PI / 2;
+    if (Q.med) blob.scale.set(1.0, 1.35, 1);
     blob.position.y = 0.06;
     group.add(blob);
+    if (Q.shadows) {
+      group.traverse(o => { if (o.isMesh && o !== blob) o.castShadow = true; });
+    }
     scene.add(group);
   }
 

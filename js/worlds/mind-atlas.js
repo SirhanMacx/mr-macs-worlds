@@ -53,6 +53,10 @@ export const def = {
     zenithDay: 0x2e3a8c, horizonDay: 0xe2a9c6, fogDay: 0xb5aed4,
     zenithDusk: 0x222a6e, horizonDusk: 0xf0bb96, fogDusk: 0xc2aac4,
     sunColor: 0xffdcc9, cycleSec: 600, sunAzim: -2.2, sunElev: [0.22, 0.46],
+    // graphics overhaul: additive night-phase mood (medium+; derived if absent).
+    // A dream/unconscious night — violet-black zenith, rosy-cool horizon, a
+    // pale-lilac moon to keep the mind-delver world's reverie tone after dark.
+    nightZenith: 0x0d0f2e, nightHorizon: 0x2a2348, fogNight: 0x161335, moonColor: 0xcfc6ee,
   },
   light: { hemiSky: 0xa9b8ff, hemiGround: 0x41486b, hemiI: 0.95, sun: 0xffd9c0, sunI: 1.25 },
   water: { deep: 0x1d4a66, shallow: 0x3aa6a0, opacity: 0.85, waveAmp: 0.14 },

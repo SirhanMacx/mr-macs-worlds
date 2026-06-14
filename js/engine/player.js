@@ -3,18 +3,45 @@
 // analytic height field the mesh was built from — collision is exact and free.
 // Desktop: WASD/arrows + drag-look or click-to-pointer-lock, Shift run, Space hop,
 // wheel zoom. Touch: left virtual joystick (push far to run) + right drag-look.
+//
+// GRAPHICS TIERS (read defensively — a builder/integrator may construct us with
+// no `qual`, in which case we behave exactly as the shipped low path):
+//   low    capsule + soft round blob shadow (today, unchanged)
+//   medium + shared canvas FACE texture on the head, smoother capsule/head segs,
+//            an OVAL blob tinted by the ground color (reads as a soft contact
+//            patch rather than a hard black disc)
+//   high   + real shadow casting on the avatar meshes (only if qual.shadows; the
+//            integrator allocates the shadow map / sets renderer.shadowMap)
+// The blob shadow is NEVER removed — even with real shadows on, the contact oval
+// stays as cheap grounding when the avatar is between shadow cascades.
 import * as THREE from 'three';
+import { makeFaceTexture } from './materials.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
+// Safe default — Player built WITHOUT qual behaves as the low (Chromebook) tier.
+const LOW_QUAL = { tier: 'low', face: false, shadows: false };
+function resolvePlayerQual(qual) {
+  const q = qual || LOW_QUAL;
+  const tier = q.tier || 'low';
+  if (tier === 'low') return { tier: 'low', face: false, shadows: false };
+  const high = tier === 'high';
+  return {
+    tier,
+    face: q.face ?? true,            // medium+ default on
+    shadows: high ? (q.shadows ?? false) : false, // real shadow only ever on high
+  };
+}
+
 export class Player {
-  constructor(camera, dom, field, def, { isMobile = false, reducedMotion = false } = {}) {
+  constructor(camera, dom, field, def, { isMobile = false, reducedMotion = false, qual = LOW_QUAL } = {}) {
     this.camera = camera;
     this.dom = dom;
     this.field = field;
     this.def = def;
     this.isMobile = isMobile;
     this.reducedMotion = reducedMotion;
+    this.qual = resolvePlayerQual(qual);
     this.enabled = true;
 
     this.pos = new THREE.Vector3(def.spawn[0], 0, def.spawn[1]);
@@ -47,17 +74,48 @@ export class Player {
 
   // ---------------- avatar ----------------
   _buildAvatar(c) {
+    const q = this.qual;
+    const med = q.tier === 'medium' || q.tier === 'high';
+
     const g = new THREE.Group();
+    // medium+ uses flatShading:false on the head only (so the face map reads
+    // smoothly); everything else stays faceted to keep the low look. The head
+    // gets the SHARED face texture as its map — one cached GPU texture per
+    // palette, never per-avatar (see materials.makeFaceTexture).
     const mat = hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.85, metalness: 0, flatShading: true });
     const jacket = mat(c.jacket), pants = mat(c.pants), skin = mat(c.skin), hat = mat(c.hat), pack = mat(c.pack);
 
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.27, 0.5, 3, 8), jacket);
+    // smoother capsule/sphere segments on medium+ (still cheap — same one
+    // material per mesh, just a few more verts; well under any budget concern).
+    const bodySegs = med ? 12 : 8;
+    const bodyRings = med ? 5 : 3;
+    const headW = med ? 14 : 10, headH = med ? 11 : 8;
+
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.27, 0.5, bodyRings, bodySegs), jacket);
     body.position.y = 1.05;
     g.add(body);
     this._body = body;
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), skin);
+    let headMat = skin;
+    if (med && q.face) {
+      // clone the skin material so the face map applies ONLY to the head and the
+      // shared skin material elsewhere stays map-free. The CanvasTexture itself
+      // is shared/cached by palette, so this is one extra material, not a texture.
+      headMat = skin.clone();
+      headMat.map = makeFaceTexture({
+        eye: 0x1a1a22,
+        mouth: 0x7a3b34,
+        blush: c.skin,
+      });
+      headMat.flatShading = false;
+      headMat.needsUpdate = true;
+      this._headMat = headMat;
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, headW, headH), headMat);
     head.position.y = 1.66;
+    // a single-face texture should sit on the FRONT of the head (toward -z, the
+    // avatar's facing). Rotate so the painted hemisphere faces forward.
+    if (headMat.map) head.rotation.y = Math.PI;
     g.add(head);
     this._head = head;
 
@@ -87,22 +145,35 @@ export class Player {
     this._armR.position.set(0.36, 1.34, 0);
     g.add(this._armL, this._armR);
 
-    // soft blob shadow — grounds the avatar without shadow maps
+    // soft contact shadow — grounds the avatar without shadow maps.
+    //   low    : round black disc (today, opacity 0.3)
+    //   medium+: a forward-elongated OVAL (scaled disc), and on each frame its
+    //            tint is multiplied toward the GROUND color the avatar stands on
+    //            (sampled via field.color) so it reads as a soft contact patch
+    //            instead of a hard black puck. Never removed — even with real
+    //            shadows on (high), it cheaply grounds the avatar between frames.
+    const blobBaseOpacity = med ? 0.34 : 0.3;
     const blob = new THREE.Mesh(
-      new THREE.CircleGeometry(0.55, 16),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false })
+      new THREE.CircleGeometry(0.55, med ? 24 : 16),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: blobBaseOpacity, depthWrite: false })
     );
     blob.rotation.x = -Math.PI / 2;
+    if (med) blob.scale.set(1.0, 1.28, 1); // forward-elongated oval (local z = avatar facing)
     blob.renderOrder = 3;
     this._blob = blob;
+    this._blobBaseOpacity = blobBaseOpacity;
+    this._blobTinted = med; // medium+ → forward oval, tinted toward ground each frame
     g.add(blob);
 
     g.traverse(o => { if (o.isMesh) o.castShadow = false; });
     return g;
   }
 
+  // Real shadow casting is high-only and gated by qual.shadows; the integrator
+  // owns the shadow map / renderer.shadowMap.enabled. The blob is never a caster.
   setShadows(on) {
-    this.group.traverse(o => { if (o.isMesh && o !== this._blob) o.castShadow = on; });
+    const allow = on && this.qual.tier === 'high' && this.qual.shadows;
+    this.group.traverse(o => { if (o.isMesh && o !== this._blob) o.castShadow = allow; });
   }
 
   // ---------------- input ----------------
@@ -336,11 +407,24 @@ export class Player {
     this._head.position.y = 1.66 + bob;
     if (!this.grounded) { this._legL.rotation.x = 0.45; this._legR.rotation.x = -0.3; }
 
-    // blob shadow hugs the ground even mid-jump
+    // contact shadow hugs the ground even mid-jump
     this._blob.position.y = (groundY - this.pos.y) + 0.06;
     const air = THREE.MathUtils.clamp(1 - (this.pos.y - groundY) * 0.18, 0.4, 1);
-    this._blob.scale.setScalar(air);
-    this._blob.material.opacity = 0.3 * air;
+    if (this._blobTinted) {
+      // keep the forward-oval aspect; scale the whole patch by `air`
+      this._blob.scale.set(air, air * 1.28, 1);
+      // tint the patch toward the biome ground color so it reads as a soft
+      // contact patch (medium+). field.color writes sRGB 0..1 into _tmpCol.
+      if (this.field.color) {
+        const c = this._tmpCol || (this._tmpCol = [0, 0, 0]);
+        this.field.color(this.pos.x, this.pos.z, groundY, 0, c);
+        // darken the ground color toward black for a believable occlusion patch
+        this._blob.material.color.setRGB(c[0] * 0.32, c[1] * 0.32, c[2] * 0.32);
+      }
+    } else {
+      this._blob.scale.setScalar(air);
+    }
+    this._blob.material.opacity = this._blobBaseOpacity * air;
 
     // ---- chase camera ----
     this._camTarget.lerp(new THREE.Vector3(this.pos.x, this.pos.y + 1.55, this.pos.z), 1 - Math.exp(-dt * 9));

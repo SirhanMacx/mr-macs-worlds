@@ -7,7 +7,7 @@ const TAU = Math.PI * 2;
 const wrapA = a => ((a + Math.PI * 3) % TAU) - Math.PI;
 const bearingOf = (dx, dz) => Math.atan2(dx, -dz); // 0 = north (-z), clockwise
 
-export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound, onQuality, onGlossary }) {
+export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound, onQuality, onGlossary, onGfx, gfxTier }) {
   const hud = document.getElementById('hud');
   hud.innerHTML = `
     <div class="hud-top">
@@ -22,6 +22,7 @@ export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound,
         <button id="btn-log" class="hud-btn" title="Quest log (Q)">LOG</button>
         <button id="btn-map" class="hud-btn" title="Map (M)">MAP</button>
         <button id="btn-snd" class="hud-btn" title="Sound on/off">SND</button>
+        ${onGfx ? `<button id="btn-gfx" class="hud-btn" title="Graphics quality — Low / Med / High (touch caps at Med)">GFX: ${gfxLabel(gfxTier)}</button>` : ''}
         <button id="btn-hq" class="hud-btn" title="High quality (shadows)">HQ</button>
         <button id="btn-help" class="hud-btn" title="Help">?</button>
       </div>
@@ -255,6 +256,19 @@ export function buildHUD({ def, stations, isMobile, onInteract, onHelp, onSound,
     onQuality(nowOn);
   });
 
+  // GFX quality cycle (Low / Med / High; touch caps at Med). The integrator
+  // owns the actual tier switch via onGfx() and returns the new effective tier
+  // name so the label always reflects the live renderer state.
+  const gfxBtn = hud.querySelector('#btn-gfx');
+  if (gfxBtn && onGfx) {
+    const setGfxLabel = (name) => { gfxBtn.textContent = 'GFX: ' + gfxLabel(name); };
+    gfxBtn.addEventListener('click', () => {
+      let next;
+      try { next = onGfx(); } catch (e) { next = null; }
+      if (next) setGfxLabel(next);
+    });
+  }
+
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
     if (e.code === 'KeyQ') toggleLog();
@@ -291,3 +305,8 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function hexRGB(hex) { return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255]; }
+
+// Short label for the GFX cycle button. Accepts a tier name; unknown → "Auto".
+function gfxLabel(tier) {
+  return ({ low: 'Low', medium: 'Med', high: 'High' })[tier] || 'Auto';
+}
