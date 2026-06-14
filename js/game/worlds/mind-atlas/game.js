@@ -20,6 +20,19 @@ import { createAchievements } from '../../achievements.js';
 import * as UI from '../../ui.js';
 import * as Sfx from '../../sfx.js';
 
+// PROOF-OF-LEARNING SPINE (purely additive — see GAME_PROOF_OF_LEARNING_SPEC.md).
+// Standards crosswalk + mastery read model + Leitner retrieval + the in-character
+// "remember when…" beat + the printable study sheet + the exam-bridge capstone
+// artifact + the PII-free teacher export code. None of these touch the frozen
+// files; they read the Codex (the only evidence of learning) and ride the save.
+import * as STANDARDS from './standards.js';
+import { createMastery, openCoveragePanel } from '../../mastery.js';
+import { createRetrieval } from '../../retrieval.js';
+import { openRetrievalBeat } from '../../retrieval-beat.js';
+import { openStudySheet } from '../../studysheet.js';
+import { buildArtifact, openArtifactPanel } from '../../capstone-artifact.js';
+import { encode as encodePoL } from '../../../teacher/export-code.js';
+
 // ADDITIVE story-pack system — dozens of curriculum content packs can plug in.
 import { STORY_PACKS } from './packs/index.js';
 import { registerPacks, makePackHostState } from './packs/loader.js';
@@ -72,6 +85,21 @@ export async function initGame(api) {
   const codex = createCodex({ state: S, save });
   const ach = createAchievements({ state: S, save });
   function rec(id) { if (!S.regions[id]) S.regions[id] = { puzzle: false, wraith: false, restored: false, reinforcement: false }; return S.regions[id]; }
+
+  // ---------- Proof-of-Learning spine (additive) ----------
+  // mastery: a pure read model over Codex + this world's standards map (AP Psych
+  // CED). retrieval: the Leitner schedule riding state.retrieval (lazily inited;
+  // pre-spine saves load untouched). ensureCards backfills a box-1 card for every
+  // Codex id already earned on this save. None of this throws on a bad shape.
+  const mastery = createMastery({ codex, standards: STANDARDS });
+  const retrieval = createRetrieval({ state: S, save, codex });
+  try { retrieval.ensureCards(); } catch (e) { /* private mode / no clock — never block boot */ }
+  // session rate-limit for the gentle retrieval beat (~1 surfacing per session).
+  let retrievalBeatShown = false;
+  // edge-detect the capstone win flag so the exam-bridge artifact opens exactly
+  // once when the Exam of the Self is passed (the loader sets the flag + records
+  // the codex; we observe the transition without touching the loader/pack).
+  let capstoneArtifactShown = false;
 
   // ---------- systems ----------
   UI.init(api);
@@ -144,11 +172,13 @@ export async function initGame(api) {
     <button id="mb-atlas" class="mb-btn" title="The atlas of the mind — regions, abilities, cases">ATLAS</button>
     <button id="mb-atlasvoice" class="mb-btn" title="Speak with Atlas, the mind's guide">ATLAS SPEAKS</button>
     <button id="mb-codex" class="mb-btn" title="Field Journal — what you have come to understand (the growing record of Clarity)">CODEX</button>
+    <button id="mb-coverage" class="mb-btn" title="Standards Coverage — what you understand mapped to the AP Psychology exam, with PRINT and a no-name SHARE code">COVERAGE</button>
     <button id="mb-ach" class="mb-btn" title="Milestones you carried through">MEDALS</button>`;
   document.body.appendChild(bar);
   bar.querySelector('#mb-atlas').addEventListener('click', () => { Sfx.click(); openAtlas(); });
   bar.querySelector('#mb-atlasvoice').addEventListener('click', () => { Sfx.click(); speakWithAtlas(); });
   bar.querySelector('#mb-codex').addEventListener('click', () => { Sfx.click(); codex.open(); });
+  bar.querySelector('#mb-coverage').addEventListener('click', () => { Sfx.click(); openCoverage(); });
   bar.querySelector('#mb-ach').addEventListener('click', () => { Sfx.click(); ach.open(); });
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
@@ -594,11 +624,167 @@ export async function initGame(api) {
       <h4 class="ma-h4">Abilities</h4>
       <div class="ma-ablist">${ab.length ? ab.map(a => `<div class="ma-ab2"><b>${esc(a.icon)} ${esc(a.name)}</b><span>${esc(a.desc)}</span></div>`).join('') : '<p class="ma-fb">None yet — restore a region to earn your first ability.</p>'}</div>
       <h4 class="ma-h4">Case Files</h4>
-      <div class="ma-ablist">${CASE_FILES.map(c => `<div class="ma-ab2"><b>${esc(c.name)}</b><span>${S.cases[c.id] ? 'solved' : (S.scrolls >= 3 ? 'ready at the Observatory' : 'gather evidence (' + S.scrolls + '/3)')}</span></div>`).join('')}</div>`;
+      <div class="ma-ablist">${CASE_FILES.map(c => `<div class="ma-ab2"><b>${esc(c.name)}</b><span>${S.cases[c.id] ? 'solved' : (S.scrolls >= 3 ? 'ready at the Observatory' : 'gather evidence (' + S.scrolls + '/3)')}</span></div>`).join('')}</div>
+      <h4 class="ma-h4">Standards Coverage</h4>
+      <p class="ma-fb">See what you understand mapped to the AP Psychology exam — and PRINT a study sheet or SHARE a no-name progress code.</p>
+      <div class="ma-actions"><button class="ma-go prim" id="ma-open-coverage">Open Standards Coverage</button></div>`;
     card.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => {
       const st = stations.list.find(s => s.id === b.dataset.go);
       if (st) { stations.setBeacon(st); UI.closeAll(); Panels.toast('A beacon marks the way.'); }
     }));
+    const covBtn = card.querySelector('#ma-open-coverage');
+    if (covBtn) covBtn.addEventListener('click', () => { Sfx.click(); openCoverage(); });
+  }
+
+  // ---------- PROOF-OF-LEARNING: coverage panel + retrieval beat + capstone ----
+  // The COVERAGE matrix: what the player understands mapped to the AP Psychology
+  // CED, with PRINT (the codex-derived study sheet) and SHARE (the PII-free PoL
+  // export code). All three read the live Codex; nothing here records or quizzes.
+  function openCoverage() {
+    openCoveragePanel({
+      codex, standards: STANDARDS, mastery,
+      onPrint() {
+        try { openStudySheet({ codex, standards: STANDARDS }); }
+        catch (e) { try { Panels.toast('The study sheet could not open here.'); } catch (x) {} }
+      },
+      onShare() { openShareCode(); },
+    });
+  }
+
+  // SHARE MY PROGRESS (NO NAME): mint the PoL export code (bits only, no name /
+  // free text / device id) and show it with a copy button. PII-free by
+  // construction (the encoder draws only from [A-Za-z0-9._-]).
+  function openShareCode() {
+    let code = '';
+    try {
+      code = encodePoL({
+        worldKey: 'mind-atlas',
+        standardsMap: STANDARDS.STANDARDS_MAP,
+        codex,
+        retrieval: (S && S.retrieval) ? S.retrieval : null,
+      }) || '';
+    } catch (e) { code = ''; }
+
+    if (!document.getElementById('ma-share-style')) {
+      const ss = document.createElement('style');
+      ss.id = 'ma-share-style';
+      ss.textContent = `
+        .gui-ma.ma-share .ma-card{max-width:560px;}
+        .ma-share .ma-sharelead{font:500 13.5px/1.6 Georgia,serif;color:#cde8ff;margin:6px 0 10px;}
+        .ma-share .ma-codebox{font:700 13px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#ffe9c0;
+          background:rgba(120,80,180,.16);border:1px solid rgba(176,124,255,.4);border-radius:8px;
+          padding:11px 13px;word-break:break-all;user-select:all;}
+        .ma-share .ma-sharenote{font:500 11.5px/1.5 system-ui,sans-serif;color:#a9b8ff;margin:10px 0 0;}
+        .ma-share .ma-shareacts{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap;}`;
+      document.head.appendChild(ss);
+    }
+
+    UI.push({
+      className: 'gui-ma ma-share',
+      html: '<div class="ma-card"></div>',
+      onMount(el, ctx) {
+        const card = el.querySelector('.ma-card');
+        const body = code
+          ? `<p class="ma-sharelead">Hand this code to your teacher to share what you understand — no name, no message, nothing personal. It carries only which turning points you have lit on the AP Psychology map.</p>
+             <div class="ma-codebox" id="ma-pol-code">${esc(code)}</div>
+             <p class="ma-sharenote">Privacy-safe by design: this code is only letters, numbers, and dots — never your name, your words, or your device.</p>
+             <div class="ma-shareacts">
+               <button class="ma-go prim" id="ma-pol-copy">COPY CODE</button>
+               <button class="ma-go" data-gui-close>DONE</button>
+             </div>`
+          : `<p class="ma-sharelead">Light a turning point on the road first — once the Codex holds something, a no-name progress code will appear here to share.</p>
+             <div class="ma-shareacts"><button class="ma-go" data-gui-close>CLOSE</button></div>`;
+        card.innerHTML = `
+          <div class="ma-head"><div><div class="ma-kicker">SHARE MY PROGRESS</div>
+            <div class="ma-title">No-name proof code</div></div>
+            <button class="dlg-x" data-gui-close>CLOSE</button></div>
+          ${body}`;
+        const copyBtn = card.querySelector('#ma-pol-copy');
+        if (copyBtn) copyBtn.addEventListener('click', () => {
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(code).then(() => UI.floatText('Code copied', 'xp')).catch(() => selectCode(card));
+            } else { selectCode(card); }
+          } catch (e) { selectCode(card); }
+        });
+      },
+    });
+  }
+  function selectCode(card) {
+    try {
+      const box = card.querySelector('#ma-pol-code');
+      if (box && window.getSelection && document.createRange) {
+        const r = document.createRange(); r.selectNodeContents(box);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        UI.floatText('Selected — press Cmd/Ctrl+C', 'gain');
+      }
+    } catch (e) { /* selection unavailable */ }
+  }
+
+  // GENTLE RETRIEVAL BEAT: at the world's natural visit moment, surface ONE due
+  // Codex card as an in-character "remember when…" from Atlas — never a quiz.
+  // Rate-limited to ~1 per session, only fires when nothing else is open and a
+  // due card with an idea to re-pose actually exists. ensureCards() first so a
+  // just-recorded keystone has a schedule. Affirm = grade true; "remind me" =
+  // grade false + re-teach the keystone's OWN idea (handled by retrieval-beat).
+  function maybeRetrievalBeat() {
+    if (retrievalBeatShown) return;
+    if (UI.isOpen()) return;
+    let card = null;
+    try { retrieval.ensureCards(); card = retrieval.pickOne(); }
+    catch (e) { card = null; }
+    if (!card || !card.entry || !card.entry.idea) return;
+    retrievalBeatShown = true;
+    const bound = { ...card, grade(ok) { return retrieval.grade(card.id, ok); } };
+    try {
+      openRetrievalBeat(bound, {
+        mentorName: ATLAS_VOICE.name || 'Atlas',
+        mentorTitle: ATLAS_VOICE.title || 'the mind\'s guide',
+        intro: 'Atlas\'s light turns toward you, unhurried, the way the mind drifts back to something it already knows. A memory surfaces.',
+        palette: (ATLAS_VOICE.palette) || { robe: 0x163a4a, trim: 0xffd27f, skin: 0xbfe8ff, hat: 0x0e2733 },
+        affirmFx() { try { particles.burst('sparkle', player.pos.x, player.pos.y + 1.4, player.pos.z, 14); } catch (e) {} try { Sfx.good(); } catch (e) {} },
+        missFx() { try { Sfx.click(); } catch (e) {} },
+      });
+    } catch (e) {
+      // a beat must never break the world — undo the rate-limit so it can retry.
+      retrievalBeatShown = false;
+    }
+  }
+
+  // EXAM BRIDGE: when the capstone (the Exam of the Self) is passed, the loader
+  // sets story flag 'exam_self_cleared' and records cx_exam_self. We observe that
+  // transition (without touching the loader/pack) and build + open the standards-
+  // stamped AAQ/EBQ artifact so the student leaves with a claim + cited evidence
+  // + a rubric self-check drawn ONLY from what they actually earned.
+  function maybeCapstoneArtifact() {
+    if (capstoneArtifactShown) return;
+    let cleared = false;
+    try { cleared = !!(story && story.is && story.is('exam_self_cleared')); } catch (e) { cleared = false; }
+    if (!cleared) return;
+    capstoneArtifactShown = true;
+    try {
+      const artifact = buildArtifact({ codex, standards: STANDARDS, kind: 'aaq_ebq' });
+      // open the panel; if the loader's win overlay / cutscene is still up, wait
+      // for the stage to clear (poll up to ~12s) so the artifact lands cleanly on
+      // top of a quiet screen rather than stacking under the win card.
+      const open = () => {
+        try {
+          openArtifactPanel(artifact, {
+            onPrint() { try { openStudySheet({ codex, standards: STANDARDS }); } catch (e) {} },
+          });
+        } catch (e) { /* artifact panel must never break the win */ }
+      };
+      if (!UI.isOpen()) { open(); return; }
+      let tries = 0;
+      const waitIdle = () => {
+        try {
+          if (!UI.isOpen()) { open(); return; }
+        } catch (e) { open(); return; }
+        if (++tries > 60) { open(); return; } // ~12s safety: open regardless
+        setTimeout(waitIdle, 200);
+      };
+      setTimeout(waitIdle, 200);
+    } catch (e) { /* never block the capstone win over the bridge */ }
   }
 
   // ---------- beacon ----------
@@ -655,7 +841,14 @@ export async function initGame(api) {
     particles.update(dt);
     updateAmbience(dt, frame);
     // story-pack triggers: poll region-visit + flag watchers (cheap, throttled)
-    if (frame % 10 === 0 && !api.isPaused()) { pumpPackVisit(); pumpPackFlags(); }
+    if (frame % 10 === 0 && !api.isPaused()) {
+      pumpPackVisit(); pumpPackFlags();
+      // PROOF-OF-LEARNING: at the same natural visit moment, watch for the
+      // capstone win (open the exam-bridge artifact once) and offer the gentle
+      // retrieval beat (Atlas re-poses a due idea, ~1/session, only when idle).
+      maybeCapstoneArtifact();
+      maybeRetrievalBeat();
+    }
 
     // confidence slowly recovers as you walk the mind
     if (!api.isPaused() && S.confidence < MAXCONF) {
@@ -711,6 +904,9 @@ export async function initGame(api) {
   const game = {
     S, xp, story, save: () => save(),
     regionsRestored, rec, codex, ach, packs,
+    // Proof-of-Learning spine (additive) exposed for wiring/composition.
+    mastery, retrieval, standards: STANDARDS,
+    openCoverage, openShareCode, maybeRetrievalBeat, maybeCapstoneArtifact,
     openRegionHub, openCaseMenu, openAtlas, speakWithAtlas, raiseClarity,
     debug: {
       goto(id) { const st = stations.list.find(s => s.id === id); if (st) player.teleport(st.pos.x, st.pos.z - 6); },
@@ -731,6 +927,19 @@ export async function initGame(api) {
       codexEntries() { return codex.entries(); },
       hasCodex(id) { return codex.has(id); },
       achList() { return ach.list(); },
+      // ----- PROOF-OF-LEARNING spine debug surface (verification) -----
+      openCoverage() { openCoverage(); return true; },
+      masterySummary() { try { return mastery.summary(); } catch (e) { return null; } },
+      retrievalCards() { try { return retrieval.cardsFor(); } catch (e) { return null; } },
+      ensureRetrievalCards() { try { return Object.keys(retrieval.ensureCards() || {}).length; } catch (e) { return 0; } },
+      // mint the PII-free export code (string only — no panel) for a grep test.
+      exportCode() {
+        try {
+          return encodePoL({ worldKey: 'mind-atlas', standardsMap: STANDARDS.STANDARDS_MAP, codex, retrieval: (S && S.retrieval) ? S.retrieval : null }) || '';
+        } catch (e) { return ''; }
+      },
+      // build the capstone artifact data (no UI) so a test can inspect it.
+      capstoneArtifact() { try { return buildArtifact({ codex, standards: STANDARDS, kind: 'aaq_ebq' }); } catch (e) { return null; } },
       // drive a region's concept puzzle to completion through the real logic
       solvePuzzle(regionId) {
         const region = REGION_BY[regionId];

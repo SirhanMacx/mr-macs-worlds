@@ -28,6 +28,19 @@ import * as Sfx from '../../sfx.js';
 import { ISLANDS, BUILDINGS, BRIDGES, STORIES, COMPASS, COLD_OPEN, MIRA, KEYSTONE, QUIET_STAGES } from './content.js';
 import { STORY_PACKS } from './packs/index.js';
 import { openGemCard, openBook, findTerm } from './book.js';
+
+// ---- Proof-of-Learning spine (purely additive; no edits to codex/save/story) --
+// This world's standards map (pure data) + the read-model + the spaced-recall
+// scheduler + its in-character beat + the printable study sheet + the exam-bridge
+// capstone artifact + the privacy-safe share code. Every import is a sibling
+// module already built by the spine agents; we only WIRE them here.
+import WH_STANDARDS from './standards.js';
+import { createMastery, openCoveragePanel } from '../../mastery.js';
+import { createRetrieval } from '../../retrieval.js';
+import { openRetrievalBeat } from '../../retrieval-beat.js';
+import { openStudySheet } from '../../studysheet.js';
+import { buildArtifact, openArtifactPanel } from '../../capstone-artifact.js';
+import { encode as encodePoL } from '../../../teacher/export-code.js';
 import { openBridgePuzzle, buildBridgeMesh, buildBridgeSite } from './bridge.js';
 import { openPictureMatch, openWordSort, openListenFind, openLanterns, openTimeTravel } from './festival.js';
 import { openStory } from './storybook.js';
@@ -89,6 +102,12 @@ export async function initGame(api) {
   // both are defensive — a journal/achievement write can never break a beat.
   const codex = createCodex({ state: S, save });
   const ach = createAchievements({ state: S, save });
+  // Proof-of-Learning read/recall models, built on the live codex + this world's
+  // standards. Both are defensive (never throw); retrieval lazily slots
+  // state.retrieval beside codex/story without clobbering a pre-spine save.
+  const mastery = createMastery({ codex, standards: WH_STANDARDS });
+  const retrieval = createRetrieval({ state: S, save, codex });
+  let retrievalBeatShown = false; // rate-limit the recall beat to ~1 per session
   let miraNpc = null, miraLamp = null, bulaMarker = null; // story-NPC refs
 
   const gloss = await (await fetch(def.glossary)).json();
@@ -745,7 +764,12 @@ export async function initGame(api) {
           save();
           // record the real idea into the shared Field Journal (idempotent +
           // guarded — a journal write can never break the beat).
-          if (ks.codex) codex.record(ks.codex);
+          if (ks.codex) {
+            codex.record(ks.codex);
+            // back the new understanding with a spaced-recall card (box 1). The
+            // PoL contract: "New card -> box 1 on first codex.record." Guarded.
+            try { retrieval.ensureCards(); } catch (e) { /* never break the beat */ }
+          }
           if (ks.achievement) {
             const meta = (pack.achievements || []).find(a => a.id === ks.achievement) || { title: ks.achievement };
             ach.unlock(ks.achievement, meta);
@@ -875,12 +899,41 @@ export async function initGame(api) {
   function notifyPackQuestDone(storyId) {
     for (const t of packTriggers) if (!t.fired && t.on === 'questDone' && t.value === storyId) firePackTrigger(t);
   }
+
+  // ---- Proof-of-Learning: the gentle spaced-recall beat (Mira "remember when…")
+  // At a natural visit moment a single DUE Codex card may surface — not a quiz, a
+  // memory the player affirms (or asks Mira to re-tell the SAME idea). Rate-limited
+  // to ~1 per session and only when no other UI is open, so it never interrupts.
+  // The world adapter dresses retrieval-beat in Mira's warm voice + Word Harbor fx.
+  function maybeRetrievalBeat() {
+    if (retrievalBeatShown) return;            // at most once per session
+    if (UI.isOpen()) return;                   // never interrupt an open panel
+    let card = null;
+    try { card = retrieval.pickOne(); } catch (e) { return; } // never throw on read
+    if (!card) return;                         // nothing due → stay silent
+    retrievalBeatShown = true;
+    const grade = (ok) => { try { return retrieval.grade(card.id, ok); } catch (e) { return null; } };
+    try {
+      openRetrievalBeat({ ...card, grade }, {
+        mentorName: MIRA.name || 'Mira',
+        mentorTitle: MIRA.title || 'The lamplighter',
+        intro: 'Mira the lamplighter catches your eye across the bright plaza, and a word you learned comes back to you.',
+        palette: MIRA.palette || {},
+        affirmFx: () => { try { Sfx.good(); } catch (e) {} try { particles.burst('sparkle', player.pos.x, player.pos.y + 1.4, player.pos.z, 10); } catch (e) {} },
+        missFx: () => { try { Sfx.click(); } catch (e) {} },
+      });
+    } catch (e) { /* a recall beat can never break play */ }
+  }
   // island-entry detector: the player is "on" an island when within its radius
   // (ISLES geometry). Fires on:'visit' triggers the first time per island. Skip
   // entirely if no visit trigger is even pending (cheap on the common path).
   let nearPackIsland = null;
   function checkPackVisits() {
-    if (!packTriggers.some(t => !t.fired && t.on === 'visit')) return;
+    // the island-entry detector ALSO drives the Proof-of-Learning recall beat
+    // (the world's natural "visit moment"), so it must run even once every pack
+    // 'visit' trigger has fired — but only while a recall beat is still pending.
+    const visitsPending = packTriggers.some(t => !t.fired && t.on === 'visit');
+    if (!visitsPending && retrievalBeatShown) return;
     let on = null;
     for (const isl of ISLANDS) {
       const geo = ISLES[ISLE_OF[isl.id]];
@@ -888,8 +941,11 @@ export async function initGame(api) {
       const dx = player.pos.x - geo.c[0], dz = player.pos.z - geo.c[1];
       if (dx * dx + dz * dz < geo.r * geo.r) { on = isl.id; break; }
     }
-    if (on && nearPackIsland !== on) { nearPackIsland = on; notifyPackVisit(on); }
-    else if (!on) nearPackIsland = null;
+    if (on && nearPackIsland !== on) {
+      nearPackIsland = on;
+      if (visitsPending) notifyPackVisit(on);
+      maybeRetrievalBeat();   // a due card may surface as a Mira "remember when…" beat
+    } else if (!on) nearPackIsland = null;
   }
   // 'enter'/'boot' triggers fire once now (after the cold open, so they queue)
   for (const t of packTriggers) if (t.on === 'enter' || t.on === 'boot') {
@@ -1124,6 +1180,20 @@ export async function initGame(api) {
                   refreshHud();
                   updateGoal();
                 }
+                // ---- Proof-of-Learning EXAM BRIDGE (gentle framing) ----
+                // The Time Travel Festival is the world's capstone (the mirror of
+                // the real ENL final). On the won path, the player leaves with a
+                // standards-stamped Enduring-Issues claim + evidence built ONLY
+                // from what they actually understood, plus a kind rubric self-check.
+                // A short delay lets the win banner breathe before the artifact opens.
+                setTimeout(() => {
+                  try {
+                    const artifact = buildArtifact({ codex, standards: WH_STANDARDS, kind: 'eie' });
+                    openArtifactPanel(artifact, {
+                      onPrint: () => { try { openStudySheet({ codex, standards: WH_STANDARDS }); } catch (e) { /* no printer */ } },
+                    });
+                  } catch (e) { /* the capstone artifact can never break the win */ }
+                }, 1200);
               },
             });
           }
@@ -1194,18 +1264,114 @@ export async function initGame(api) {
   bar.querySelector('#wh-journal').addEventListener('click', () => { Sfx.click(); openJournalPanel(); });
   function openJournalPanel() {
     codex.open();
-    // graft a tiny "Achievements" affordance onto the codex head (no game.css edit)
+    // graft tiny "Achievements" + "Coverage" affordances onto the codex head
+    // (no game.css edit — same idiom as the shipped Achievements graft).
     requestAnimationFrame(() => {
       const head = document.querySelector('.gui-codex .cdx-head');
-      if (head && !head.querySelector('.wh-ach-link')) {
+      if (!head) return;
+      const headBtn = (cls, label, onClick) => {
+        if (head.querySelector('.' + cls)) return;
         const btn = document.createElement('button');
-        btn.className = 'wh-ach-link';
+        btn.className = cls;
         btn.type = 'button';
-        btn.textContent = 'ACHIEVEMENTS';
+        btn.textContent = label;
         btn.style.cssText = 'margin-right:8px;background:rgba(255,209,102,0.12);color:#ffd166;border:1px solid rgba(255,210,130,0.4);border-radius:8px;padding:6px 10px;font:700 11px system-ui;letter-spacing:0.06em;cursor:pointer;';
-        btn.addEventListener('click', () => { Sfx.click(); ach.open(); });
+        btn.addEventListener('click', () => { Sfx.click(); onClick(); });
         head.insertBefore(btn, head.querySelector('.dlg-x'));
-      }
+      };
+      // COVERAGE first (left of ACHIEVEMENTS), then ACHIEVEMENTS, so the row reads
+      // CODEX | COVERAGE | ACHIEVEMENTS | CLOSE.
+      headBtn('wh-ach-link', 'ACHIEVEMENTS', () => ach.open());
+      headBtn('wh-cov-link', 'COVERAGE', () => openCoverage());
+    });
+  }
+
+  // ---- Proof-of-Learning COVERAGE matrix (standards view) + PRINT + SHARE ------
+  // The coverage panel reads the live mastery model (Codex ⨉ this world's
+  // standards) and offers two privacy-safe exits:
+  //   PRINT — a paper study sheet grouped by NYS Key Idea (studysheet.js).
+  //   SHARE — a PII-FREE PoL export code (bits only; copy-button), shown in a
+  //           small scoped sub-panel with a one-line privacy statement.
+  function openCoverage() {
+    openCoveragePanel({
+      codex, standards: WH_STANDARDS, mastery,
+      onPrint: () => { try { openStudySheet({ codex, standards: WH_STANDARDS }); } catch (e) { /* no printer */ } },
+      onShare: () => openSharePanel(),
+    });
+  }
+
+  // The "Share my progress (no name)" sub-panel: encode the export code, show it
+  // verbatim with a copy button, and state plainly that it carries no name/PII.
+  function openSharePanel() {
+    let code = '';
+    try {
+      code = encodePoL({
+        worldKey: 'word-harbor',
+        standardsMap: WH_STANDARDS.STANDARDS_MAP,
+        codex,
+        retrieval: S.retrieval,   // a card with missed>0 marks "missed" in the code
+      }) || '';
+    } catch (e) { code = ''; }
+
+    if (!document.getElementById('wh-share-style')) {
+      const st = document.createElement('style');
+      st.id = 'wh-share-style';
+      st.textContent = `
+        .gui-share .wh-share-card { background: linear-gradient(180deg, rgba(22,18,12,0.98), rgba(12,10,7,0.98));
+          border: 1px solid rgba(255,210,130,0.42); border-radius: 14px; box-shadow: 0 18px 60px rgba(0,0,0,0.66);
+          color: #ece4d2; width: min(520px, 96vw); max-height: 88vh; overflow: auto; padding: 18px; }
+        .gui-share .wh-share-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+        .gui-share .wh-share-title { font: 800 18px/1.15 Georgia, serif; color: #ffd166; }
+        .gui-share .wh-share-sub { font: 600 12px/1.35 system-ui, sans-serif; color: #bfae8c; margin-top: 3px; }
+        .gui-share .wh-share-code { font: 600 13px/1.5 ui-monospace, Menlo, monospace; color: #8be9fd;
+          word-break: break-all; background: rgba(0,0,0,0.3); border: 1px solid rgba(139,233,253,0.3);
+          border-radius: 8px; padding: 12px 13px; margin: 14px 0 6px; }
+        .gui-share .wh-share-note { font: 500 12px/1.5 system-ui, sans-serif; color: #b9ad8e; margin: 10px 0 0; }
+        .gui-share .wh-share-actions { display:flex; gap:10px; margin-top: 16px; flex-wrap: wrap; }
+        .gui-share .wh-share-btn { font: 800 12px/1 system-ui, sans-serif; letter-spacing: 0.06em; cursor: pointer;
+          border-radius: 8px; padding: 11px 16px; border: 1px solid rgba(255,210,130,0.5);
+          background: rgba(255,209,102,0.14); color: #ffd166; }
+        .gui-share .wh-share-btn.copy { background: #ffd166; color: #0c0a07; border-color: #ffd166; }
+      `;
+      document.head.appendChild(st);
+    }
+
+    UI.push({
+      className: 'gui-share',
+      html: '<div class="wh-share-card"></div>',
+      dismissible: true,
+      onMount(el) {
+        const card = el.querySelector('.wh-share-card');
+        const body = code
+          ? `<div class="wh-share-code" data-code>${esc(code)}</div>
+             <p class="wh-share-note">This code carries only which standards you have understood &mdash; no name, no message, no device ID. Your teacher can read your progress from it without ever knowing who you are.</p>`
+          : `<p class="wh-share-note">Understand a turning point on the road first &mdash; then a share code will appear here.</p>`;
+        card.innerHTML = `
+          <div class="wh-share-head">
+            <div>
+              <div class="wh-share-title">Share my progress (no name)</div>
+              <div class="wh-share-sub">A privacy-safe Proof-of-Learning code</div>
+            </div>
+            <button class="dlg-x" data-gui-close type="button">CLOSE</button>
+          </div>
+          ${body}
+          <div class="wh-share-actions">
+            ${code ? '<button class="wh-share-btn copy" type="button" data-copy>COPY CODE</button>' : ''}
+            <button class="wh-share-btn" data-gui-close type="button">DONE</button>
+          </div>`;
+        const copyBtn = card.querySelector('[data-copy]');
+        if (copyBtn) copyBtn.addEventListener('click', () => {
+          Sfx.click();
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(code).then(() => { try { UI.floatText('Copied', 'xp'); } catch (e) {} }, () => {});
+            } else {
+              const codeEl = card.querySelector('[data-code]');
+              if (codeEl) { const r = document.createRange(); r.selectNodeContents(codeEl); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); document.execCommand && document.execCommand('copy'); }
+            }
+          } catch (e) { /* clipboard unavailable */ }
+        });
+      },
     });
   }
   window.addEventListener('keydown', (e) => {
@@ -1356,6 +1522,10 @@ export async function initGame(api) {
 
   // ---------- boot ----------
   refillAll();
+  // Proof-of-Learning: lazily slot state.retrieval onto the (possibly pre-spine)
+  // save and backfill a recall card for any codex entry already earned. Guarded —
+  // a private-mode save or a missing field can never block boot.
+  try { retrieval.ensureCards(); } catch (e) { /* boot must never fail on this */ }
   refreshHud();
   updateGoal();
   if (S.pos) player.teleport(S.pos[0], S.pos[1]);
@@ -1384,7 +1554,10 @@ export async function initGame(api) {
   // ---------- debug / verification hook ----------
   const game = {
     S, gloss, active, termMap, islandOfTerm, story, codex, ach,
+    // Proof-of-Learning spine handles (read by verify-pol + the wiring self-test)
+    mastery, retrieval, standards: WH_STANDARDS,
     collect, openCompass, openFestivalMenu, openTownPanel, openWordBook, openBuildPanel,
+    openCoverage, openJournalPanel,
     bridges: BRIDGES, buildings: BUILDINGS, packs: loadedPacks,
     townLight, quietLine, lightLamp,
     save: () => save(),
@@ -1444,6 +1617,14 @@ export async function initGame(api) {
       codex() { codex.open(); },
       achievements() { ach.open(); },
       codexEntries() { return codex.entries(); },
+      // ---- Proof-of-Learning verification hooks ----
+      coverage() { openCoverage(); },                 // open the standards coverage matrix
+      share() { openSharePanel(); },                  // open the PII-free share-code panel
+      mastery() { return mastery.summary(); },        // the coverage read model summary
+      retrievalCards() { return retrieval.cardsFor(); }, // snapshot of the Leitner schedule
+      retrievalBeat() { retrievalBeatShown = false; maybeRetrievalBeat(); }, // force a due-card beat
+      buildCapstone(kind = 'eie') { return buildArtifact({ codex, standards: WH_STANDARDS, kind }); },
+      openCapstone(kind = 'eie') { openArtifactPanel(buildArtifact({ codex, standards: WH_STANDARDS, kind }), { onPrint: () => openStudySheet({ codex, standards: WH_STANDARDS }) }); },
       reset() { store.reset(); location.reload(); },
     },
   };

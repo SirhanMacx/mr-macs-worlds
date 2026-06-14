@@ -34,6 +34,19 @@ import { createCodex } from '../../codex.js';
 import { createAchievements } from '../../achievements.js';
 import { STORY_PACKS } from './packs/index.js';
 
+// ---- Proof-of-Learning spine (purely additive; see GAME_PROOF_OF_LEARNING_SPEC.md §F) ----
+// Standards crosswalk (pure data) + the read-model + retrieval scheduler + the
+// in-character recall beat + the printable study sheet + the exam-bridge capstone
+// artifact + the privacy-safe export code. None of these edit codex/save/story;
+// they read the Codex as the sole evidence of learning and ride state.retrieval.
+import TW_STANDARDS from './standards.js';
+import { createMastery, openCoveragePanel } from '../../mastery.js';
+import { createRetrieval } from '../../retrieval.js';
+import { openRetrievalBeat } from '../../retrieval-beat.js';
+import { openStudySheet } from '../../studysheet.js';
+import { buildArtifact, openArtifactPanel } from '../../capstone-artifact.js';
+import { encode as encodePoL } from '../../../teacher/export-code.js';
+
 import {
   ERAS, ERA_GATES, GOODS, CITIES, TRANSPORTS, PERKS, QUESTS, NPCS,
   ZONES, EVENTS, AMBIENT_PER_CITY, topicsForEra, COLD_OPEN,
@@ -81,6 +94,51 @@ export async function initGame(api) {
   // the Codex becomes the Enduring-Issues capstone evidence-book.
   const codex = createCodex({ state: S, save });
   const ach = createAchievements({ state: S, save });
+
+  // ---- Proof-of-Learning spine (additive) ----
+  // mastery = a pure read model over the Codex + this world's standards crosswalk
+  //   (no save field — the Codex IS the evidence). It powers the COVERAGE matrix.
+  // retrieval = a Leitner scheduler riding state.retrieval (lazily inited on a
+  //   pre-spine save without clobbering codex/story). Every recorded keystone
+  //   gets a box-1 card; due cards resurface later as an in-character recall beat.
+  const mastery = createMastery({ codex, standards: TW_STANDARDS });
+  const retrieval = createRetrieval({ state: S, save, codex });
+  retrieval.ensureCards(); // backfill cards for any keystones already understood
+  let retrievalBeatThisSession = false; // rate-limit: at most ~1 recall beat / session
+
+  // The recall beat's world adapter: a returning trader (or, for the home harbor,
+  // Old Anath) re-poses the player's OWN understanding as a warm memory — never a
+  // quiz. Affirming keeps the card warm (box+1); "remind me" re-teaches the same
+  // idea and drops it to box 1 to return tomorrow. Palette matches the road's folk.
+  const RETRIEVAL_ADAPTER = {
+    mentorName: 'A returning trader',
+    mentorTitle: 'someone you once dealt with on the road',
+    intro: 'A trader you bargained with seasons ago catches your eye across the quay, and an old understanding comes back to you.',
+    palette: { robe: 0x7a5a32, trim: 0x4a3b28, skin: 0xc98a5b, hat: 0x4a3b28 },
+    retrieval, // so retrieval-beat can grade through this instance if needed
+    affirmFx() { try { Sfx.good(); particles.burst('confetti', player.pos.x, player.pos.y + 1.2, player.pos.z, 8); } catch (e) {} },
+    missFx() { try { Sfx.click(); } catch (e) {} },
+  };
+
+  // Surface a single due card per session as a recall beat — only when the world
+  // is quiet (no other panel open) and a due card with a real idea exists. Pure
+  // additive: reads the schedule, opens an overlay, grades through retrieval.
+  function maybeRetrievalBeat() {
+    if (retrievalBeatThisSession) return;
+    if (UI.isOpen()) return;
+    let pick;
+    try { pick = retrieval.pickOne(); } catch (e) { pick = null; }
+    if (!pick || !pick.entry || !pick.entry.idea) return;
+    retrievalBeatThisSession = true;
+    // bind a grader onto the pick so retrieval-beat updates the live schedule.
+    const card = { id: pick.id, card: pick.card, entry: pick.entry, grade: (ok) => { try { return retrieval.grade(pick.id, ok); } catch (e) { return null; } } };
+    // Home harbor (Byblos) reads as Old Anath welcoming you back; elsewhere a
+    // returning trader. Both honor the contract: re-teach the entry's own idea.
+    const adapter = (nearCity === 'byblos')
+      ? { ...RETRIEVAL_ADAPTER, mentorName: 'Old Anath', mentorTitle: 'back at the home quay', intro: 'Old Anath looks up from the nets as you pass, and an understanding you carried home comes back to you.' }
+      : RETRIEVAL_ADAPTER;
+    try { openRetrievalBeat(card, adapter); } catch (e) { /* never break the visit loop over a beat */ }
+  }
 
   // ---------- systems ----------
   UI.init(api);
@@ -473,6 +531,9 @@ export async function initGame(api) {
       const cxEntry = (pack.codex || []).find(c => c && c.id === ks.codexId);
       if (cxEntry) codex.record(cxEntry);
       else if (ks.codexId) codex.record({ id: ks.codexId, group: pack.unit, title: ks.id, idea: '', source: '' });
+      // PoL: a newly understood keystone earns a fresh box-1 retrieval card so it
+      // can resurface later as a recall beat. ensureCards is idempotent + guarded.
+      try { retrieval.ensureCards(); } catch (e) {}
     } catch (e) { /* a journal write must never break a beat */ }
     try { if (ks.flag) story.flag(ks.flag); } catch (e) {}
     try {
@@ -483,6 +544,25 @@ export async function initGame(api) {
       if (ks.achievement) {
         const meta = (pack.achievements || []).find(a => a && a.id === ks.achievement);
         ach.unlock(ks.achievement, meta ? { title: meta.title, desc: meta.desc } : {});
+      }
+    } catch (e) {}
+    // PoL EXAM BRIDGE: at the capstone won path (the Enduring-Issues keystone in
+    // pack u9-enduring-issues, kind:eie), assemble a standards-stamped claim +
+    // evidence + Regents-EIE rubric self-check from the player's EARNED Codex
+    // only, and present it so the student leaves the capstone with a real artifact.
+    // Phantom evidenceIds in the pack are never read (buildArtifact resolves
+    // against earned ids). Deferred a tick so the keystone's own 'won' dialogue
+    // and House rise land first. Fully guarded — never breaks the reward.
+    try {
+      if (ks.id === 'ks-enduring-issues' || ks.codexId === 'cx-enduring-issues') {
+        setTimeout(() => {
+          try {
+            const artifact = buildArtifact({ codex, standards: TW_STANDARDS, kind: 'eie' });
+            openArtifactPanel(artifact, {
+              onPrint() { try { openStudySheet({ codex, standards: TW_STANDARDS }); } catch (e) {} },
+            });
+          } catch (e) { /* a broken artifact panel must not break the capstone win */ }
+        }, 260);
       }
     } catch (e) {}
   }
@@ -686,10 +766,17 @@ export async function initGame(api) {
     const achN = ach.list().length;
     const tabs = [
       ['quests', 'QUESTS'], ['perks', `PERKS${S.perkPts ? ' (+' + S.perkPts + ')' : ''}`], ['caravan', 'CARAVAN'],
-      ['codex', `CODEX${cdxN ? ' (' + cdxN + ')' : ''}`], ['medals', `MEDALS${achN ? ' (' + achN + ')' : ''}`],
+      ['codex', `CODEX${cdxN ? ' (' + cdxN + ')' : ''}`], ['coverage', 'COVERAGE'], ['medals', `MEDALS${achN ? ' (' + achN + ')' : ''}`],
     ];
     let body = '';
-    if (tab === 'codex') {
+    if (tab === 'coverage') {
+      // PoL: the standards-coverage doorway. Opens the amber coverage matrix
+      // (mastery read model) with PRINT (study sheet) + SHARE (PII-free code).
+      let sum;
+      try { sum = mastery.summary(); } catch (e) { sum = { pct: 0, earned: 0, total: 0 }; }
+      body = `<p class="jrn-tip">Your understandings, charted against the <b>${UI.esc((TW_STANDARDS.FRAMEWORK || {}).system || 'Global 9')}</b> standards — exam coverage <b>${sum.pct}%</b> (${sum.earned} of ${sum.total} turning points). Print a study sheet or share your progress with no name attached.</p>
+        <div class="jrn-perk"><div><b>Open Standards Coverage</b><span>See which Key Ideas your road has documented, print a study sheet, share a privacy-safe code.</span></div><button data-open="coverage">OPEN</button></div>`;
+    } else if (tab === 'codex') {
       // The field journal of understanding — turning points the player has GRASPED.
       // Opens the full shared Codex panel; this tab is the discoverable doorway.
       body = `<p class="jrn-tip">Your <b>Field Journal</b> holds every turning point you have come to understand — the evidence-book for the Enduring-Issues essay. You have understood <b>${cdxN}</b> so far.</p>
@@ -743,6 +830,7 @@ export async function initGame(api) {
       // open the shared panel ON TOP of the journal (Esc closes it back to here)
       if (b.dataset.open === 'codex') codex.open();
       else if (b.dataset.open === 'medals') ach.open();
+      else if (b.dataset.open === 'coverage') openCoverage();
     }));
     card.querySelectorAll('[data-perk]').forEach(b => b.addEventListener('click', () => {
       const p = PERKS.find(p => p.id === b.dataset.perk);
@@ -770,6 +858,103 @@ export async function initGame(api) {
       refreshHud();
       renderJournal(card, 'caravan');
     }));
+  }
+
+  // ---------- Proof-of-Learning: coverage matrix + study sheet + share code ----------
+  // Opens the amber coverage matrix over the journal. PRINT -> a Codex-derived,
+  // standards-grouped study sheet (window.print, scoped print stylesheet). SHARE
+  // -> the PII-free PoL export code in a small copyable panel (bits only — no
+  // name, no free text, no device id). Both are guarded so neither can break the
+  // panel or the world.
+  function openCoverage() {
+    openCoveragePanel({
+      codex,
+      standards: TW_STANDARDS,
+      mastery,
+      onPrint() {
+        try { openStudySheet({ codex, standards: TW_STANDARDS }); } catch (e) { /* no printer / headless */ }
+      },
+      onShare() {
+        let code = '';
+        try {
+          code = encodePoL({
+            worldKey: 'trade-winds',
+            standardsMap: TW_STANDARDS.STANDARDS_MAP,
+            codex,
+            retrieval: S.retrieval, // missed cards mark "missed" bits; PII-free either way
+          }) || '';
+        } catch (e) { code = ''; }
+        openSharePanel(code);
+      },
+    });
+  }
+
+  // A tiny dark/amber panel showing the PoL export code with a COPY button and
+  // the verbatim privacy statement. The code is [A-Za-z0-9._-] only — no name,
+  // no free text — so it is safe to read aloud, write down, or paste to a teacher.
+  function openSharePanel(code) {
+    injectShareStyleOnce();
+    UI.push({
+      className: 'gui-polshare',
+      html: '<div class="pls-card"></div>',
+      onMount(el, { close }) {
+        const card = el.querySelector('.pls-card');
+        card.innerHTML = `
+          <div class="pls-head">
+            <div class="pls-title">Share my progress (no name)</div>
+            <button class="dlg-x" data-gui-close type="button">CLOSE</button>
+          </div>
+          <p class="pls-note">This code carries only which standards you have documented — no name, no message, no device, nothing personal. Read it to your teacher or paste it where asked.</p>
+          ${code
+            ? `<div class="pls-code" role="textbox" aria-readonly="true">${UI.esc(code)}</div>
+               <button class="pls-copy" type="button">COPY CODE</button>`
+            : `<p class="pls-empty">Understand a turning point on the road first — then a progress code can be shared here.</p>`}`;
+        const copyBtn = card.querySelector('.pls-copy');
+        if (copyBtn) copyBtn.addEventListener('click', () => {
+          try {
+            if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(code).then(
+                () => { try { UI.floatText('Code copied', 'xp'); } catch (e) {} },
+                () => { try { UI.floatText('Copy it by hand', 'loss'); } catch (e) {} }
+              );
+            } else { try { UI.floatText('Copy it by hand', 'loss'); } catch (e) {} }
+          } catch (e) { /* clipboard blocked — the code is still visible to read */ }
+        });
+      },
+    });
+  }
+
+  let _polShareStyled = false;
+  function injectShareStyleOnce() {
+    if (typeof document === 'undefined' || _polShareStyled) return;
+    if (document.getElementById('mmw-polshare-style')) { _polShareStyled = true; return; }
+    const s = document.createElement('style');
+    s.id = 'mmw-polshare-style';
+    s.textContent = `
+.gui-polshare .pls-card {
+  background: linear-gradient(180deg, rgba(22,18,12,0.98), rgba(12,10,7,0.98));
+  border: 1px solid rgba(255,210,130,0.42); border-radius: 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.66);
+  color: #ece4d2; width: min(520px, 96vw); max-height: 88vh; overflow: auto; padding: 18px;
+}
+.gui-polshare .pls-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.gui-polshare .pls-title { font: 800 19px/1.15 Georgia, serif; color: #ffd166; letter-spacing: 0.02em; }
+.gui-polshare .pls-note { font: 500 12.5px/1.55 system-ui, sans-serif; color: #cbbd9c; margin: 12px 0 0; }
+.gui-polshare .pls-code {
+  font: 700 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: #8be9fd;
+  background: rgba(139,233,253,0.08); border: 1px solid rgba(139,233,253,0.32);
+  border-radius: 8px; padding: 12px 13px; margin: 14px 0 0; word-break: break-all; user-select: all;
+}
+.gui-polshare .pls-copy {
+  width: 100%; margin-top: 12px; cursor: pointer; font: 800 12px/1 system-ui, sans-serif; letter-spacing: 0.06em;
+  border-radius: 8px; padding: 12px 14px; border: 1px solid rgba(255,210,130,0.5);
+  background: #ffd166; color: #0c0a07;
+}
+.gui-polshare .pls-copy:hover { filter: brightness(1.06); }
+.gui-polshare .pls-empty { font: 500 13px/1.6 Georgia, serif; color: #a89a7e; margin: 14px 0 0; }
+`;
+    document.head.appendChild(s);
+    _polShareStyled = true;
   }
 
   // ---------- era progression + win ----------
@@ -829,6 +1014,10 @@ export async function initGame(api) {
       refreshMarkers();
       maybeMotherBeat(inCity.id);
       packTriggerVisit(inCity.id); // story-pack 'visit' cutscenes fire here, once
+      // PoL: a quiet, rate-limited recall beat at the world's natural visit
+      // moment — a returning trader re-poses one due understanding (never a quiz).
+      // Deferred a tick so any story-beat cutscene this visit fired opens first.
+      setTimeout(maybeRetrievalBeat, 80);
     } else if (!inCity) nearCity = null;
   }
 
@@ -977,9 +1166,34 @@ export async function initGame(api) {
       openAchievements() { ach.open(); },
       codexEntries() { return codex.entries(); },
       achievements() { return ach.list(); },
+
+      // ---- Proof-of-Learning verification hooks ----
+      openCoverage() { openCoverage(); },                       // the coverage matrix (PRINT + SHARE)
+      masterySummary() { return mastery.summary(); },           // exam-coverage read model
+      retrievalCards() { try { return S.retrieval ? S.retrieval.cards : null; } catch (e) { return null; } },
+      retrievalEnsure() { return retrieval.ensureCards(); },    // backfill cards for earned ids
+      retrievalDue() { try { return retrieval.due(); } catch (e) { return []; } },
+      // force a recall beat now (resets the per-session limiter). Returns the
+      // picked card id, or null if nothing is due.
+      retrievalBeat() { retrievalBeatThisSession = false; const p = retrieval.pickOne(); maybeRetrievalBeat(); return p ? p.id : null; },
+      // make a card due NOW (for headless verification of the beat) and surface it.
+      retrievalForce(id) {
+        try {
+          retrieval.ensureCards();
+          if (S.retrieval && S.retrieval.cards && S.retrieval.cards[id]) { S.retrieval.cards[id].due = Date.now() - 1000; save(); }
+          retrievalBeatThisSession = false; maybeRetrievalBeat();
+          return true;
+        } catch (e) { return false; }
+      },
+      shareCode() { try { return encodePoL({ worldKey: 'trade-winds', standardsMap: TW_STANDARDS.STANDARDS_MAP, codex, retrieval: S.retrieval }); } catch (e) { return ''; } },
+      studySheet() { try { return openStudySheet({ codex, standards: TW_STANDARDS }); } catch (e) { return ''; } },
+      capstoneArtifact() { try { const a = buildArtifact({ codex, standards: TW_STANDARDS, kind: 'eie' }); openArtifactPanel(a, { onPrint() { try { openStudySheet({ codex, standards: TW_STANDARDS }); } catch (e) {} } }); return a; } catch (e) { return null; } },
+      standards() { return TW_STANDARDS; },
     },
     // expose the spine on the game object too (handy for outer harnesses)
     codex, ach, loadedPacks,
+    // Proof-of-Learning spine handles
+    mastery, retrieval, standards: TW_STANDARDS,
   };
   window.TW = game;
   return game;
