@@ -15,8 +15,14 @@ import { createXP } from '../../xp.js';
 import { createNPCSystem } from '../../npc.js';
 import { createParticles } from '../../particles.js';
 import { openDialogue } from '../../dialogue.js';
+import { createCodex } from '../../codex.js';
+import { createAchievements } from '../../achievements.js';
 import * as UI from '../../ui.js';
 import * as Sfx from '../../sfx.js';
+
+// ADDITIVE story-pack system — dozens of curriculum content packs can plug in.
+import { STORY_PACKS } from './packs/index.js';
+import { registerPacks, makePackHostState } from './packs/loader.js';
 
 import {
   EXAM, ABILITIES, REGIONS, ORDER, CASE_REGION, DENIZENS,
@@ -60,6 +66,11 @@ export async function initGame(api) {
   const save = () => store.save();
   if (typeof S.clarity !== 'number') S.clarity = 0; // defensive for pre-story saves
   const story = createStory({ state: S, save });
+  // shared Codex + Achievements (the growing 'Clarity'/correct-science record).
+  // state.codex / state.achievements ride the existing per-world save (save.js
+  // merges new fields over defaults) so they appear on old saves as empty arrays.
+  const codex = createCodex({ state: S, save });
+  const ach = createAchievements({ state: S, save });
   function rec(id) { if (!S.regions[id]) S.regions[id] = { puzzle: false, wraith: false, restored: false, reinforcement: false }; return S.regions[id]; }
 
   // ---------- systems ----------
@@ -131,13 +142,18 @@ export async function initGame(api) {
     <div class="mb-block mb-exam" title="The in-world exam date"><span class="mb-lab">EXAM</span> <b>${esc(EXAM.label)}</b></div>
     <div class="mb-block mb-abil" id="mb-abil" title="Abilities earned"></div>
     <button id="mb-atlas" class="mb-btn" title="The atlas of the mind — regions, abilities, cases">ATLAS</button>
-    <button id="mb-atlasvoice" class="mb-btn" title="Speak with Atlas, the mind's guide">ATLAS SPEAKS</button>`;
+    <button id="mb-atlasvoice" class="mb-btn" title="Speak with Atlas, the mind's guide">ATLAS SPEAKS</button>
+    <button id="mb-codex" class="mb-btn" title="Field Journal — what you have come to understand (the growing record of Clarity)">CODEX</button>
+    <button id="mb-ach" class="mb-btn" title="Milestones you carried through">MEDALS</button>`;
   document.body.appendChild(bar);
   bar.querySelector('#mb-atlas').addEventListener('click', () => { Sfx.click(); openAtlas(); });
   bar.querySelector('#mb-atlasvoice').addEventListener('click', () => { Sfx.click(); speakWithAtlas(); });
+  bar.querySelector('#mb-codex').addEventListener('click', () => { Sfx.click(); codex.open(); });
+  bar.querySelector('#mb-ach').addEventListener('click', () => { Sfx.click(); ach.open(); });
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-    if (e.code === 'KeyM' || e.code === 'KeyJ') { e.stopImmediatePropagation(); openAtlas(); }
+    if (e.code === 'KeyM') { e.stopImmediatePropagation(); openAtlas(); }
+    if (e.code === 'KeyJ') { e.stopImmediatePropagation(); codex.open(); }
   }, true);
 
   function regionsRestored() { return ORDER.filter(id => rec(id).restored).length; }
@@ -351,6 +367,59 @@ export async function initGame(api) {
     });
   }
   buildScrolls();
+
+  // ---------- STORY-PACK SYSTEM (additive) ----------
+  // Register every pack in packs/index.js into the live world DEFENSIVELY (the
+  // loader wraps each pack's wiring in try/catch — one broken pack can NEVER
+  // crash the world). Pack NPCs join the world at existing region stations with
+  // dialogue + markers; pack triggers fire their cutscenes once at region-visit
+  // or story-flag; pack keystones become reachable (from the pack NPC and as a
+  // debug jump). On a keystone win the loader records the Codex entry, lifts
+  // Clarity (the standing meter), sets the flag, and unlocks any achievement.
+  const packHostState = makePackHostState();
+  const packHost = {
+    scene, field, player, stations, npcSys, particles,
+    S, story, save, codex, ach, isMobile,
+    xp: (n) => g.xp(n),
+    raiseClarity: (n, t, s) => raiseClarity(n, t, s),
+    insight: (n, l) => g.insight(n, l),
+    hurt: (n, l) => g.hurt(n, l),
+    confidence: () => S.confidence,
+    regionsRestored,
+    regionStation: (id) => stations.list.find(s => s.id === id),
+    _packVisitWatchers: packHostState._packVisitWatchers,
+    _packFlagWatchers: packHostState._packFlagWatchers,
+  };
+  let packs = { list: () => [], count: () => 0, keystoneIds: () => [], runKeystone: () => false, keystoneInfo: () => null };
+  try {
+    packs = registerPacks(STORY_PACKS, packHost);
+  } catch (e) {
+    try { console.warn('[mmw packs] registerPacks failed; world continues without packs', e); } catch (x) { /* no console */ }
+  }
+  // pack trigger pumps: a region-visit pump (frame loop) + a flag pump (polled).
+  // Both are driven below in the frame loop so triggers fire at the right beat
+  // without touching the shared story.js module.
+  let packPrevRegion = null;
+  function pumpPackVisit() {
+    const wl = packHost._packVisitWatchers;
+    if (!wl.length) return;
+    // reuse the ambience region detection: which region am I standing in?
+    let inId = null;
+    for (const r of def.regions) {
+      const dx = player.pos.x - r.center[0], dz = player.pos.z - r.center[1];
+      if (dx * dx + dz * dz < (r.r * 1.05) * (r.r * 1.05)) { inId = r.id; break; }
+    }
+    if (inId && inId !== packPrevRegion) {
+      packPrevRegion = inId;
+      for (const w of wl) if (w.region === inId) { try { w.fire(); } catch (e) { /* trigger never crashes */ } }
+    } else if (!inId) {
+      packPrevRegion = null;
+    }
+  }
+  function pumpPackFlags() {
+    const wl = packHost._packFlagWatchers;
+    for (const w of wl) { try { if (story.is(w.flag)) w.fire(); } catch (e) { /* ok */ } }
+  }
 
   // ---------- region hub ----------
   function openRegionHub(region) {
@@ -585,6 +654,8 @@ export async function initGame(api) {
     npcSys.update(dt, t, player.pos);
     particles.update(dt);
     updateAmbience(dt, frame);
+    // story-pack triggers: poll region-visit + flag watchers (cheap, throttled)
+    if (frame % 10 === 0 && !api.isPaused()) { pumpPackVisit(); pumpPackFlags(); }
 
     // confidence slowly recovers as you walk the mind
     if (!api.isPaused() && S.confidence < MAXCONF) {
@@ -639,13 +710,27 @@ export async function initGame(api) {
   // ---------- debug / verification hook ----------
   const game = {
     S, xp, story, save: () => save(),
-    regionsRestored, rec,
+    regionsRestored, rec, codex, ach, packs,
     openRegionHub, openCaseMenu, openAtlas, speakWithAtlas, raiseClarity,
     debug: {
       goto(id) { const st = stations.list.find(s => s.id === id); if (st) player.teleport(st.pos.x, st.pos.z - 6); },
       coldOpen() { return Array.isArray(COLD_OPEN) && COLD_OPEN.length > 0; },
       atlasSpeaks() { speakWithAtlas(); return true; },
       fogFinale() { fogFinale(() => {}); return true; },
+      // ----- STORY-PACK debug surface (verification) -----
+      packs() { return packs.list(); },                 // [{id,unit,title,keystones[]}]
+      packCount() { return packs.count(); },
+      keystones() { return packs.keystoneIds(); },        // all loaded keystone ids
+      keystoneInfo(id) { return packs.keystoneInfo(id); },
+      // jump straight into a pack keystone's encounter (opens the overlay)
+      runKeystone(id) { return packs.runKeystone(id); },
+      // open the shared Field Journal / Achievements panels
+      openCodex() { codex.open(); return true; },
+      openAchievements() { ach.open(); return true; },
+      codexCount() { return codex.count(); },
+      codexEntries() { return codex.entries(); },
+      hasCodex(id) { return codex.has(id); },
+      achList() { return ach.list(); },
       // drive a region's concept puzzle to completion through the real logic
       solvePuzzle(regionId) {
         const region = REGION_BY[regionId];

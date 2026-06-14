@@ -16,6 +16,8 @@ import { ISLES } from '../../../worlds/word-harbor.js';
 
 import { createSave } from '../../save.js';
 import { createStory } from '../../story.js';
+import { createCodex } from '../../codex.js';
+import { createAchievements } from '../../achievements.js';
 import { playCutscene } from '../../cutscene.js';
 import { createNPCSystem } from '../../npc.js';
 import { createParticles } from '../../particles.js';
@@ -24,6 +26,7 @@ import * as UI from '../../ui.js';
 import * as Sfx from '../../sfx.js';
 
 import { ISLANDS, BUILDINGS, BRIDGES, STORIES, COMPASS, COLD_OPEN, MIRA, KEYSTONE, QUIET_STAGES } from './content.js';
+import { STORY_PACKS } from './packs/index.js';
 import { openGemCard, openBook, findTerm } from './book.js';
 import { openBridgePuzzle, buildBridgeMesh, buildBridgeSite } from './bridge.js';
 import { openPictureMatch, openWordSort, openListenFind, openLanterns, openTimeTravel } from './festival.js';
@@ -80,6 +83,12 @@ export async function initGame(api) {
   const save = () => store.save();
   if (!S.helped) S.helped = {};           // defensive for pre-story saves
   const story = createStory({ state: S, save });
+  // shared spine: the Field Journal of understanding (codex) + sparse milestones
+  // (achievements). Both ride the per-world save (save.js merges state.codex /
+  // state.achievements over defaults, so they appear on old saves as []), and
+  // both are defensive — a journal/achievement write can never break a beat.
+  const codex = createCodex({ state: S, save });
+  const ach = createAchievements({ state: S, save });
   let miraNpc = null, miraLamp = null, bulaMarker = null; // story-NPC refs
 
   const gloss = await (await fetch(def.glossary)).json();
@@ -454,6 +463,7 @@ export async function initGame(api) {
               UI.banner('Story heard — ' + st.title, 'Stories make the words easier to keep.');
               refreshHud();
               updateGoal();
+              try { notifyPackQuestDone(st.id); } catch (e) { /* additive: never break a story */ }
             }
           },
         });
@@ -642,6 +652,248 @@ export async function initGame(api) {
         }
       }));
     }
+  }
+
+  // ===================================================================
+  //  STORY-PACK SYSTEM (additive) — dozens of curriculum packs plug in
+  //  here without touching the shipped story. A pack adds NPCs, one-time
+  //  cutscenes, triggers and gentle keystones; on a keystone win it writes
+  //  a Codex entry, lifts the town-light meter and may unlock an
+  //  achievement. EVERY pack is registered DEFENSIVELY in its own try/catch
+  //  so one broken pack can never crash Word Harbor — it is logged + skipped.
+  //  See packs/CONTRACT.md (the spec) and packs/geography-isle.sample.js
+  //  (the gold-standard example Workflow-2 authors copy).
+  // ===================================================================
+  const loadedPacks = [];           // {id, unit, title, pack, npcRecs:[...]}
+  const packKeystones = {};         // keystoneId -> { pack, ks, openFn }
+  const packTriggers = [];          // {on, value, play, reward, pack, fired}
+
+  // a generic keystone overlay — the SAME picture-first, no-fail, TTS-able
+  // flow as Bula, but parametric so any pack keystone reuses it with zero new
+  // UI. Wrong choice re-teaches + loops; right choice opens the warm scene,
+  // records the Codex entry, lifts the meter and unlocks any achievement.
+  function openPackKeystone(pack, ks) {
+    const helpedKey = 'ks-' + ks.id;
+    const helped = !!S.helped[helpedKey];
+    let hintsOn = false;
+    try { hintsOn = localStorage.getItem('mmw-wh-hints') === '1'; } catch (e) { /* fresh */ }
+    UI.push({
+      className: 'wh-fest-layer',
+      html: '<div class="wh-fest-card wh-keystone-card"></div>',
+      dismissible: true,
+      onClose() { Read.stop(); },
+      onMount(el, { close }) { render(el.querySelector('.wh-keystone-card'), close); },
+    });
+
+    function render(card, close, reteach) {
+      if (helped) {
+        card.innerHTML = `
+          <div class="wh-bridge-head"><b>${esc(ks.npcName || pack.title)}</b>
+            <span class="wh-bridge-sub">${esc(ks.npcTitle || pack.unit)}</span>
+            <button class="dlg-x" data-gui-close>LEAVE</button></div>
+          <canvas class="wh-story-pic wh-ks-pic" aria-hidden="true"></canvas>
+          <p class="wh-story-en">${esc(ks.win.en)}
+            ${Read.buttonHTML(ks.win.en, { lang: 'en-US', label: 'Read aloud' })}</p>
+          <div class="wh-story-nav"><button class="wh-btn" data-gui-close>YOU ARE WELCOME</button></div>`;
+        requestAnimationFrame(() => paintPic(ks.win.pic || ks.pic || 'gem', card.querySelector('.wh-ks-pic')));
+        Read.speak(ks.win.en, { lang: 'en-US', rate: 0.85 });
+        return;
+      }
+      const q = ks.prompt;
+      card.innerHTML = `
+        <div class="wh-bridge-head"><b>${esc(ks.npcName || pack.title)} needs a word</b>
+          <span class="wh-bridge-sub">Give the RIGHT word — wrong is never a problem</span>
+          <button class="dlg-x" data-gui-close>LEAVE</button></div>
+        <canvas class="wh-story-pic wh-ks-pic" aria-hidden="true"></canvas>
+        <p class="wh-story-en">${esc(q.en)}
+          ${Read.buttonHTML(q.en, { lang: 'en-US', label: 'Read the question aloud' })}</p>
+        ${reteach ? `<p class="wh-bridge-tryagain">${esc(reteach.en)}
+          ${Read.buttonHTML(reteach.en, { lang: 'en-US', label: 'Read aloud' })}</p>` : ''}
+        <div class="wh-ks-choices">
+          ${ks.choices.map((c, i) => `
+            <button class="wh-ks-choice" data-i="${i}">
+              <canvas class="wh-ks-thumb" aria-hidden="true"></canvas>
+              <span>${esc(c.label)}</span>
+            </button>`).join('')}
+        </div>
+        <div class="wh-story-hints" style="display:${hintsOn ? 'block' : 'none'}">
+          <p lang="zh-Hans"><span class="wh-hint-lab">中文</span> ${esc(q.zh || '')}</p>
+          <p lang="es"><span class="wh-hint-lab">Español</span> ${esc(q.es || '')}</p>
+        </div>
+        <div class="wh-story-nav">
+          <button class="wh-btn wh-hint-toggle ${hintsOn ? 'on' : ''}">${hintsOn ? 'HIDE HINTS' : '中文 / ESPAÑOL'}</button>
+          <span class="wh-fest-tip">Take all the tries you need</span>
+        </div>`;
+      requestAnimationFrame(() => {
+        paintPic(ks.pic || 'gem', card.querySelector('.wh-ks-pic'));
+        card.querySelectorAll('.wh-ks-choice').forEach((b, i) => paintPic(ks.choices[i].pic, b.querySelector('.wh-ks-thumb')));
+      });
+      Read.speak(q.en, { lang: 'en-US', rate: 0.82 });
+      card.querySelector('.wh-hint-toggle').addEventListener('click', () => {
+        Sfx.click(); hintsOn = !hintsOn;
+        try { localStorage.setItem('mmw-wh-hints', hintsOn ? '1' : '0'); } catch (e) { /* no-op */ }
+        render(card, close, reteach);
+      });
+      card.querySelectorAll('.wh-ks-choice').forEach(b => b.addEventListener('click', () => {
+        const c = ks.choices[+b.dataset.i];
+        if (c.right) {
+          // CORRECT — the world visibly changes: a warm scene opens, the Codex
+          // remembers the idea, a lamp lights, the Quiet recedes one more step.
+          Sfx.good();
+          S.helped[helpedKey] = 1;
+          if (ks.flag) story.flag(ks.flag);
+          save();
+          // record the real idea into the shared Field Journal (idempotent +
+          // guarded — a journal write can never break the beat).
+          if (ks.codex) codex.record(ks.codex);
+          if (ks.achievement) {
+            const meta = (pack.achievements || []).find(a => a.id === ks.achievement) || { title: ks.achievement };
+            ach.unlock(ks.achievement, meta);
+          }
+          close();
+          openStory({
+            title: ks.npcName || pack.title, npc: ks.npcTitle || pack.unit,
+            lines: [{ pic: ks.win.pic || ks.pic || 'gem', en: ks.win.en, zh: ks.win.zh, es: ks.win.es }],
+            doneLabel: 'A LAMP LIGHTS',
+            onDone() {
+              refreshPackMarkers();
+              lightLamp(ks.light || 'You gave the right word, and the harbor is brighter.');
+            },
+          });
+        } else {
+          // NOT-QUITE-RIGHT — never a red X. The neighbor re-teaches gently
+          // (picture + why) and you simply try again from understanding.
+          Sfx.bad();
+          b.classList.remove('wobble'); void b.offsetWidth; b.classList.add('wobble');
+          if (c.reteach) Read.speak(c.reteach.en, { lang: 'en-US', rate: 0.85 });
+          render(card, close, c.reteach);
+        }
+      }));
+    }
+  }
+
+  // marker refresh for pack NPCs that own an un-helped keystone (green bob,
+  // goes dark once understood). Called at boot, on a keystone win, and per
+  // frame for the gentle bob (cheap: only iterates pack NPCs with markers).
+  function refreshPackMarkers() {
+    for (const lp of loadedPacks) {
+      for (const r of lp.npcRecs) {
+        if (!r.marker) continue;
+        const open = r.keystoneId && !S.helped['ks-' + r.keystoneId];
+        r.marker.visible = !!open;
+      }
+    }
+  }
+
+  // play a pack cutscene once, then optionally lift the meter. Mirrors the
+  // shipped playStoryBeat shape but lives on a per-pack flag so it fires once.
+  function playPackCutscene(pack, beatsName, reward) {
+    const beats = (pack.cutscenes || {})[beatsName];
+    if (!Array.isArray(beats) || !beats.length) return false;
+    playCutscene(beats).then(() => {
+      if (reward && typeof reward.light === 'string') lightLamp(reward.light);
+    });
+    return true;
+  }
+
+  // register ONE pack — defensively. Adds its NPCs (each with dialogue or a
+  // keystone + a marker), indexes its keystones, and queues its triggers.
+  function registerPack(pack) {
+    if (!pack || !pack.id) { console.warn('[Word Harbor] skipped a pack with no id'); return; }
+    if (loadedPacks.some(lp => lp.id === pack.id)) { console.warn('[Word Harbor] duplicate pack id, skipped:', pack.id); return; }
+    const lp = { id: pack.id, unit: pack.unit || '', title: pack.title || pack.id, pack, npcRecs: [] };
+    const ksById = {};
+    for (const ks of (pack.keystones || [])) if (ks && ks.id) ksById[ks.id] = ks;
+
+    for (const spec of (pack.npcs || [])) {
+      if (!spec || !spec.id || !Array.isArray(spec.pos)) continue;
+      const x = spec.pos[0], z = spec.pos[1];
+      const npc = npcSys.addNPC({
+        id: 'pack-' + pack.id + '-' + spec.id, name: spec.name || spec.id, title: spec.title || pack.unit,
+        x, z, palette: spec.palette || { robe: 0x6e5d8a, trim: 0x3c3428, skin: 0xd9a066 },
+        hatKind: spec.hatKind || 'cap',
+        face: Math.atan2(player.pos.x - x, player.pos.z - z),
+        labelColor: '#cdeec0',
+      });
+      const ks = spec.keystone ? ksById[spec.keystone] : null;
+      let marker = null;
+      if (ks) {
+        // carry the NPC's display fields onto the keystone for the overlay
+        ks.npcName = spec.name || spec.id; ks.npcTitle = spec.title || pack.unit;
+        packKeystones[ks.id] = { pack, ks };
+        marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.18), new THREE.MeshBasicMaterial({ color: 0x9bd47e }));
+        marker.position.y = 2.2;
+        npc.group.add(marker);
+      }
+      stations.addExtra({
+        id: 'pack-npc-' + pack.id + '-' + spec.id,
+        type: 'npc', verb: ks ? 'Help' : 'Talk to', label: spec.name || spec.id,
+        pos: npc.group.position, interactR: 8,
+        onInteract() {
+          if (ks) { openPackKeystone(pack, ks); return; }
+          if (spec.dialogue) {
+            openDialogue(npc, spec.dialogue, dialogueCtx());
+            return;
+          }
+          Panels.toast((spec.name || 'A neighbor') + ' smiles, but has no words yet.');
+        },
+      });
+      lp.npcRecs.push({ spec, npc, marker, keystoneId: ks ? ks.id : null });
+    }
+
+    for (const tr of (pack.triggers || [])) {
+      if (!tr || !tr.play) continue;
+      packTriggers.push({ on: tr.on || 'visit', value: tr.value, play: tr.play, reward: tr.reward, pack, fired: false });
+    }
+    loadedPacks.push(lp);
+  }
+
+  // boot the loader: register every pack in its own try/catch, then prime the
+  // markers and fire any 'enter'/'boot' triggers once.
+  for (const pack of (STORY_PACKS || [])) {
+    try { registerPack(pack); }
+    catch (e) { console.warn('[Word Harbor] pack failed to register and was skipped:', pack && pack.id, e); }
+  }
+  refreshPackMarkers();
+
+  // fire a trigger key once (flag-keyed so it survives reloads via story flags)
+  function firePackTrigger(t) {
+    if (t.fired) return;
+    const flagKey = 'pk-' + t.pack.id + '-' + t.play;
+    if (story.is(flagKey)) { t.fired = true; return; }
+    story.flag(flagKey);
+    t.fired = true;
+    try { playPackCutscene(t.pack, t.play, t.reward); }
+    catch (e) { console.warn('[Word Harbor] pack cutscene failed:', t.pack.id, t.play, e); }
+  }
+  function notifyPackVisit(islandId) {
+    for (const t of packTriggers) if (!t.fired && t.on === 'visit' && t.value === islandId) firePackTrigger(t);
+  }
+  function notifyPackFlag(flag) {
+    for (const t of packTriggers) if (!t.fired && t.on === 'flag' && t.value === flag) firePackTrigger(t);
+  }
+  function notifyPackQuestDone(storyId) {
+    for (const t of packTriggers) if (!t.fired && t.on === 'questDone' && t.value === storyId) firePackTrigger(t);
+  }
+  // island-entry detector: the player is "on" an island when within its radius
+  // (ISLES geometry). Fires on:'visit' triggers the first time per island. Skip
+  // entirely if no visit trigger is even pending (cheap on the common path).
+  let nearPackIsland = null;
+  function checkPackVisits() {
+    if (!packTriggers.some(t => !t.fired && t.on === 'visit')) return;
+    let on = null;
+    for (const isl of ISLANDS) {
+      const geo = ISLES[ISLE_OF[isl.id]];
+      if (!geo) continue;
+      const dx = player.pos.x - geo.c[0], dz = player.pos.z - geo.c[1];
+      if (dx * dx + dz * dz < geo.r * geo.r) { on = isl.id; break; }
+    }
+    if (on && nearPackIsland !== on) { nearPackIsland = on; notifyPackVisit(on); }
+    else if (!on) nearPackIsland = null;
+  }
+  // 'enter'/'boot' triggers fire once now (after the cold open, so they queue)
+  for (const t of packTriggers) if (t.on === 'enter' || t.on === 'boot') {
+    setTimeout(() => firePackTrigger(t), 400);
   }
 
   // a few ambient villagers around the plaza from day one
@@ -894,6 +1146,7 @@ export async function initGame(api) {
       <span class="wh-light-track"><span id="wh-light-fill" class="wh-light-fill"></span></span>
     </div>
     <button id="wh-book" class="tb-btn">BOOK</button>
+    <button id="wh-journal" class="tb-btn">JOURNAL</button>
     <button id="wh-town" class="tb-btn">TOWN</button>
   `;
   document.body.appendChild(bar);
@@ -934,9 +1187,31 @@ export async function initGame(api) {
   }
   bar.querySelector('#wh-book').addEventListener('click', () => { Sfx.click(); openWordBook(); });
   bar.querySelector('#wh-town').addEventListener('click', () => { Sfx.click(); openTownPanel(); });
+  // JOURNAL — the Field Journal (Codex): the turning points you have understood
+  // across the harbor, fed by every keystone (Bula + every pack). A small
+  // "Achievements" link in the codex panel opens the milestones panel. Both are
+  // the shared spine; codex.open()/ach.open() inject their own scoped CSS.
+  bar.querySelector('#wh-journal').addEventListener('click', () => { Sfx.click(); openJournalPanel(); });
+  function openJournalPanel() {
+    codex.open();
+    // graft a tiny "Achievements" affordance onto the codex head (no game.css edit)
+    requestAnimationFrame(() => {
+      const head = document.querySelector('.gui-codex .cdx-head');
+      if (head && !head.querySelector('.wh-ach-link')) {
+        const btn = document.createElement('button');
+        btn.className = 'wh-ach-link';
+        btn.type = 'button';
+        btn.textContent = 'ACHIEVEMENTS';
+        btn.style.cssText = 'margin-right:8px;background:rgba(255,209,102,0.12);color:#ffd166;border:1px solid rgba(255,210,130,0.4);border-radius:8px;padding:6px 10px;font:700 11px system-ui;letter-spacing:0.06em;cursor:pointer;';
+        btn.addEventListener('click', () => { Sfx.click(); ach.open(); });
+        head.insertBefore(btn, head.querySelector('.dlg-x'));
+      }
+    });
+  }
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
     if (e.code === 'KeyB') { e.stopImmediatePropagation(); openWordBook(); }
+    if (e.code === 'KeyJ') { e.stopImmediatePropagation(); openJournalPanel(); }
   }, true);
 
   function refreshHud() {
@@ -1027,6 +1302,15 @@ export async function initGame(api) {
         bulaMarker.position.y = 2.2 + Math.sin(t * 2.2) * 0.1;
         bulaMarker.rotation.y = t * 1.2;
       } else if (bulaMarker) { bulaMarker.visible = false; }
+      // pack-NPC keystone markers bob the same gentle way
+      for (const lp of loadedPacks) {
+        for (const r of lp.npcRecs) {
+          if (r.marker && r.marker.visible) {
+            r.marker.position.y = 2.2 + Math.sin(t * 2.2 + 0.6) * 0.1;
+            r.marker.rotation.y = t * 1.2;
+          }
+        }
+      }
     }
 
     // villagers wave when you come close (the talk gesture doubles as a wave)
@@ -1038,6 +1322,8 @@ export async function initGame(api) {
         const dz = player.pos.z - n.group.position.z;
         n.talking = (dx * dx + dz * dz) < 49;
       }
+      // pack triggers: detect first entry onto each island (for on:'visit')
+      checkPackVisits();
     }
 
     // building name-labels show only as you approach (less clutter, and each
@@ -1097,9 +1383,9 @@ export async function initGame(api) {
 
   // ---------- debug / verification hook ----------
   const game = {
-    S, gloss, active, termMap, islandOfTerm, story,
+    S, gloss, active, termMap, islandOfTerm, story, codex, ach,
     collect, openCompass, openFestivalMenu, openTownPanel, openWordBook, openBuildPanel,
-    bridges: BRIDGES, buildings: BUILDINGS,
+    bridges: BRIDGES, buildings: BUILDINGS, packs: loadedPacks,
     townLight, quietLine, lightLamp,
     save: () => save(),
     debug: {
@@ -1126,6 +1412,38 @@ export async function initGame(api) {
         save(); placeBuilding(b, BUILDINGS.indexOf(b)); refreshHud(); updateGoal(); checkTown();
       },
       goto(x, z) { player.teleport(x, z); },
+      // ---- story-pack system verification ----
+      // list every loaded pack with its NPCs + keystone ids
+      packs() {
+        return loadedPacks.map(lp => ({
+          id: lp.id, unit: lp.unit, title: lp.title,
+          npcs: lp.npcRecs.map(r => r.spec.id),
+          keystones: lp.npcRecs.filter(r => r.keystoneId).map(r => r.keystoneId),
+        }));
+      },
+      // open a pack's keystone overlay by id (the same one the NPC opens)
+      keystone(id) {
+        const rec = packKeystones[id];
+        if (!rec) { console.warn('no such pack keystone:', id, '— have:', Object.keys(packKeystones)); return false; }
+        openPackKeystone(rec.pack, rec.ks); return true;
+      },
+      // teleport to a pack NPC (so you can see its marker + walk up to it)
+      gotoNpc(npcId) {
+        for (const lp of loadedPacks) {
+          const r = lp.npcRecs.find(x => x.spec.id === npcId);
+          if (r) { player.teleport(r.npc.group.position.x, r.npc.group.position.z + 4); return true; }
+        }
+        return false;
+      },
+      // force-fire a pack cutscene by pack id + cutscene key (ignores the gate)
+      packCutscene(packId, key) {
+        const lp = loadedPacks.find(x => x.id === packId);
+        if (!lp) { console.warn('no such pack:', packId); return false; }
+        return playPackCutscene(lp.pack, key);
+      },
+      codex() { codex.open(); },
+      achievements() { ach.open(); },
+      codexEntries() { return codex.entries(); },
       reset() { store.reset(); location.reload(); },
     },
   };
