@@ -19,6 +19,7 @@ import { createStory } from '../../story.js';
 import { createCodex } from '../../codex.js';
 import { createAchievements } from '../../achievements.js';
 import { playCutscene } from '../../cutscene.js';
+import { playOpeningShot, OPENING_SHOTS } from '../../../engine/cinematic.js';
 import { createNPCSystem } from '../../npc.js';
 import { createParticles } from '../../particles.js';
 import { openDialogue } from '../../dialogue.js';
@@ -1548,7 +1549,26 @@ export async function initGame(api) {
         : 'WASD to move, mouse to look, E to collect and talk. B — word book. No timers, nothing to lose. Find Mira at the plaza.'),
       cta: 'Step onto the dock',
     };
-    playCutscene([...COLD_OPEN, controlsBeat]);
+    // AWE: orbit the incoming boat at dusk, rising to reveal the quay and plaza as
+    // the lamps ignite and the cinePad swells to a cineHit — then a seamless
+    // hand-off into the gentle cold open (one pad spans both via pad:false).
+    (async () => {
+      let cine = null;
+      try { cine = await playOpeningShot(api, OPENING_SHOTS['word-harbor']); } catch (e) {}
+      try { await playCutscene([...COLD_OPEN, controlsBeat], { pad: false }); }
+      finally {
+        try { cine && cine.stopPad && cine.stopPad(); } catch (e) {}
+        try { api.setPaused(false); } catch (e) {}
+      }
+    })();
+  } else {
+    // Returning to the harbor: a short golden-hour establishing shot, then control.
+    (async () => {
+      let cine = null;
+      try { cine = await playOpeningShot(api, OPENING_SHOTS['word-harbor'], { returning: true }); } catch (e) {}
+      try { cine && cine.stopPad && cine.stopPad(); } catch (e) {}
+      try { api.setPaused(false); } catch (e) {}
+    })();
   }
 
   // ---------- debug / verification hook ----------

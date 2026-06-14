@@ -174,6 +174,19 @@ export function cinePad() {
   };
 }
 
+// cineHit() — the GASP. A rising fifth (G4→D5→G5, 392→587→784) that lands on
+// the cinematic reveal beat, with a soft shimmer of bright noise over it. Synced
+// by the caller to the visual peak of the opening sweep. Mute-aware (safe to call
+// always; produces nothing when muted). Zero assets, ~one bar long.
+export function cineHit() {
+  if (!on()) return;
+  tone({ freq: 392.00, type: 'triangle', at: 0.00, dur: 0.55, vol: 0.10 });
+  tone({ freq: 587.33, type: 'triangle', at: 0.12, dur: 0.60, vol: 0.11 });
+  tone({ freq: 783.99, type: 'sine',     at: 0.24, dur: 0.95, vol: 0.12 });
+  tone({ freq: 1174.7, type: 'sine',     at: 0.30, dur: 0.80, vol: 0.05 }); // soft octave sparkle
+  noise({ at: 0.22, dur: 0.9, vol: 0.045, freq: 6200, q: 0.7, type: 'highpass' }); // shimmer
+}
+
 let stepFlip = false;
 export function footstep(run) {
   if (!on()) return;

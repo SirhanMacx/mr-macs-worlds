@@ -12,6 +12,7 @@ import { makeLabel } from '../../../engine/geo-kit.js';
 import { createSave } from '../../save.js';
 import { createStory } from '../../story.js';
 import { playCutscene } from '../../cutscene.js';
+import { playOpeningShot, OPENING_SHOTS } from '../../../engine/cinematic.js';
 import { createEconomy, priceAt } from '../../econ.js';
 import { createXP } from '../../xp.js';
 import { createQuests } from '../../quests.js';
@@ -1113,7 +1114,26 @@ export async function initGame(api) {
         : 'WASD to move, mouse to look, SHIFT to run, E to talk and trade. J — journal, M — map. The marker over Old Anath is your first road.'),
       cta: 'Begin at the quay',
     };
-    playCutscene([...COLD_OPEN, controlsBeat]);
+    // AWE: a slow golden-hour crane over the cedar quay toward the river-delta
+    // ziggurat, the cinePad swelling to a cineHit at the reveal — then a seamless
+    // hand-off into the cold open (one pad spans both via pad:false).
+    (async () => {
+      let cine = null;
+      try { cine = await playOpeningShot(api, OPENING_SHOTS['trade-winds']); } catch (e) {}
+      try { await playCutscene([...COLD_OPEN, controlsBeat], { pad: false }); }
+      finally {
+        try { cine && cine.stopPad && cine.stopPad(); } catch (e) {}
+        try { api.setPaused(false); } catch (e) {}
+      }
+    })();
+  } else {
+    // Returning trader: a short golden-hour establishing shot of home, then control.
+    (async () => {
+      let cine = null;
+      try { cine = await playOpeningShot(api, OPENING_SHOTS['trade-winds'], { returning: true }); } catch (e) {}
+      try { cine && cine.stopPad && cine.stopPad(); } catch (e) {}
+      try { api.setPaused(false); } catch (e) {}
+    })();
   }
 
   // ---------- debug / verification hook ----------

@@ -11,6 +11,7 @@ import * as Audio from '../../../engine/audio.js';
 import { createSave } from '../../save.js';
 import { createStory } from '../../story.js';
 import { playCutscene } from '../../cutscene.js';
+import { playOpeningShot, OPENING_SHOTS } from '../../../engine/cinematic.js';
 import { createXP } from '../../xp.js';
 import { createNPCSystem } from '../../npc.js';
 import { createParticles } from '../../particles.js';
@@ -894,10 +895,28 @@ export async function initGame(api) {
         : 'WASD to move, mouse to look, SHIFT to run, E to interact. M — the atlas; the ATLAS SPEAKS button summons your guide. Begin at the Neural Caverns, where the mind is wired.'),
       cta: 'Enter the mind',
     };
-    playCutscene([...COLD_OPEN, controlsBeat]).then(() => {
+    // AWE: a low skim across the mind-sea toward the retrieval lighthouse, the fog
+    // parting, the cinePad swelling to a cineHit as the light pulses — then the
+    // cold open (one pad spans both), then Atlas frames the first move.
+    (async () => {
+      let cine = null;
+      try { cine = await playOpeningShot(api, OPENING_SHOTS['mind-atlas']); } catch (e) {}
+      try { await playCutscene([...COLD_OPEN, controlsBeat], { pad: false }); }
+      finally {
+        try { cine && cine.stopPad && cine.stopPad(); } catch (e) {}
+        try { api.setPaused(false); } catch (e) {}
+      }
       // hand off to the mentor: Atlas frames the first move.
       if (!UI.isOpen()) speakWithAtlas();
-    });
+    })();
+  } else {
+    // Returning delver: a short golden-hour establishing shot of the mind-sea.
+    (async () => {
+      let cine = null;
+      try { cine = await playOpeningShot(api, OPENING_SHOTS['mind-atlas'], { returning: true }); } catch (e) {}
+      try { cine && cine.stopPad && cine.stopPad(); } catch (e) {}
+      try { api.setPaused(false); } catch (e) {}
+    })();
   }
 
   // ---------- debug / verification hook ----------
