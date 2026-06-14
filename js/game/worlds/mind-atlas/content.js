@@ -12,6 +12,96 @@
 // In-world deadline: the "Final Exam of the Self."
 export const EXAM = { label: 'May 12', long: 'the Final Exam of the Self, May 12' };
 
+// ================================================================
+// STORY SPINE — "The Atlas and the Fog"
+// You are a Mind Cartographer called into a single human mind that has gone
+// dark. Its five regions (the CED units) are disconnected; memories scattered;
+// an Exam of the Self looms. ATLAS is the mind's own fading sense of itself
+// (a warm, lighthouse-steady mentor). THE FOG is the mind's accumulated
+// MISCONCEPTIONS, given one recurring face — every tempting-but-wrong belief
+// is the Fog speaking. You push it back from a region only by UNDERSTANDING
+// the concept correctly; restoring a region clears the Fog there, gives Atlas
+// back a piece of itself (an ability), and the Fog retreats toward its core
+// for a final confrontation at the Exam. Throughline: the scientific attitude
+// vs. intuitive misconception. (Honest pedagogy + 2024 CED scope throughout.)
+// ================================================================
+
+// COLD OPEN — replaces the old text intro card. Pure tinted-text + an Atlas
+// portrait beat (no Trade-Winds emblems). Skippable; story.chapter becomes 1.
+// Atlas's "lighthouse" palette: cool teal robe, lantern-gold trim, pale light.
+export const ATLAS_PALETTE = { robe: 0x163a4a, trim: 0xffd27f, skin: 0xbfe8ff, hat: 0x0e2733 };
+// The Fog's one recurring face: cold violet haze, hollow pale eyes.
+export const FOG_PALETTE = { robe: 0x2a1a44, trim: 0x4a3470, skin: 0xb07cff, hat: 0x1a0f2e };
+
+export const COLD_OPEN = [
+  {
+    tint: 'cold', kicker: 'A mind has gone dark',
+    text: 'You are a Mind Cartographer — called in when an inner world loses its way. This one has gone quiet. The lights of thought that should ripple across it have stilled, and a grey Fog sits over everything, soft as forgetting.',
+  },
+  {
+    tint: 'dusk',
+    text: 'Five regions make up any mind: how it is wired, how it thinks, how it learns and grows, how it lives among others, and how it heals. Tonight all five are cut off from one another — islands in the haze, each unsure the others still exist.',
+  },
+  {
+    tint: 'cold', art: 'portrait', palette: ATLAS_PALETTE, kicker: 'A steady light, far off',
+    text: 'Then a light finds you — warm, patient, like a lighthouse through weather. "I am Atlas," it says. "I am this mind\'s sense of itself, and I am fading. The Fog scattered my regions and is whispering its old, easy lies into each one. Help me know myself again — before the Exam of the Self."',
+  },
+  {
+    tint: 'cold', art: 'portrait', palette: ATLAS_PALETTE,
+    text: '"The Fog is not a monster. It is every comfortable mistake a mind ever told itself — ‘we only use ten percent of the brain,’ ‘memory plays back like video,’ ‘that person is just lazy.’ You cannot fight it with force. You push it back only by understanding the truth it hides. Restore a region, and I get a piece of myself back. Map me whole, cartographer."',
+  },
+];
+
+// What ATLAS says when you summon it (the ATLAS panel's "Atlas speaks" voice)
+// and when the cold open ends. Story-flag-aware: it frames the first move, and
+// reacts as regions come back. Spoken through openDialogue with ATLAS_PALETTE.
+// (Synthetic NPC — Atlas has no body; it is the mind's own voice.)
+export const ATLAS_VOICE = {
+  name: 'Atlas', title: 'the mind’s sense of itself',
+  palette: ATLAS_PALETTE,
+  // count = regions restored; the controller passes it on ctx so Atlas reacts.
+  dialogue: {
+    start: (ctx) => {
+      const n = ctx.regionsRestored ? ctx.regionsRestored() : 0;
+      if (n >= 5) return 'whole';
+      if (n >= 1) return 'progress';
+      return 'first';
+    },
+    nodes: {
+      first: {
+        text: 'Welcome to the inside of a mind, cartographer. Begin where everything begins — the Neural Caverns, where this mind is wired. The Fog is thick there, repeating the same tired lie: that thought leaps straight from cell to cell like current down a wire. Learn the truth of the synapse and the Fog there will thin. That truth becomes a power I can lend you to reach the next region.',
+        choices: [
+          { label: 'How do I push the Fog back, exactly?', next: 'how' },
+          { label: 'What IS the Fog, really?', next: 'whatfog' },
+        ],
+      },
+      how: {
+        text: 'In every region you will solve how that part of the mind truly works, then meet the Fog face to face — it will offer you the easy, wrong belief like a gift. Refuse it with the real science and it loses its hold. Take the bait and it thickens, and the region stays lost. There is no shame in a wrong turn; I will walk you back to the truth and you may try again.',
+        choices: [{ label: 'Then I’ll start at the Caverns.', next: '@close' }],
+      },
+      whatfog: {
+        text: 'The Fog is misconception — the mind’s habit of trusting what feels obvious over what is actually true. It wears one face here so you can meet it, but it speaks a thousand comfortable errors. The cure is the scientific attitude: ask, check, doubt the easy answer. That, more than anything, is what I have lost.',
+        choices: [{ label: 'I understand. To the Caverns.', next: '@close' }],
+      },
+      progress: {
+        text: 'I can feel it — a region is mine again, and a little more of me has come back into focus. The Fog has pulled toward its core, but it is not done. Keep going: each region you restore lends you a power to reach the next, and pushes the Fog closer to where it must finally be faced — at the Exam of the Self.',
+        choices: [
+          { label: 'Where should I go next?', next: 'next' },
+          { label: 'I’ll keep mapping.', next: '@close' },
+        ],
+      },
+      next: {
+        text: 'Follow the regions still wrapped in haze. Each gate answers to the power earned just before it: the leap of a myelinated signal opens the Memory Archipelago; the trick of chunking opens the Learning Grove; and so on, region by region. When all five are clear, the Examination Gate will open and the Fog will have nowhere left to hide.',
+        choices: [{ label: 'On my way.', next: '@close' }],
+      },
+      whole: {
+        text: 'Look at me — lit end to end. Five regions, one mind, knowing itself again. The Fog has fled to the only place left: the Exam of the Self, the Examination Gate. Face it there if you wish to prove the map complete. Whatever it offers you, answer it the way you answered every region: with the truth. Thank you, cartographer. You gave a mind back to itself.',
+        choices: [{ label: 'I’ll meet it at the Gate.', next: '@close' }],
+      },
+    },
+  },
+};
+
 // ---------------- ABILITIES (metroidvania gating) ----------------
 // Earned by RESTORING a region (puzzle solved + wraith defeated). Each opens
 // the gate to the next region in the suggested order — real concepts, used as
@@ -199,14 +289,55 @@ export const RESTRUCTURE = {
   ],
 };
 
-// ---------------- MISCONCEPTION WRAITHS ----------------
+// ---------------- THE FOG (the one recurring antagonist) ----------------
+// Every "wraith" below is THE FOG wearing a regional face. It is not a monster
+// but the mind's accumulated MISCONCEPTIONS given one voice. Its arc ESCALATES
+// region to region (cocky → strained → cornered) and is finally CONFRONTED at
+// the Exam of the Self. Keystone framing: the Fog TAUNTS with a tempting wrong
+// belief; you answer in-character with the real science. A wrong answer makes
+// the Fog THICKEN and Atlas coaches you back to the truth (consequence, not a
+// red X) — then you try again from understanding.
+export const FOG = {
+  name: 'The Fog',
+  // escalating intro lines, keyed by how many regions you have already restored
+  // when you enter the encounter (0 = first region, cocky; rising = strained).
+  escalation: [
+    'A grey shape gathers out of the haze and wears a face to speak with you. THE FOG. "Cartographer. Cozy in here, isn’t it? Why work so hard? Let me tell you how this mind works — the easy way, the way it always believed."',
+    'The Fog re-forms, a little thinner than before. "So you cleared one room. Don’t gloat. Most of this mind still belongs to me — and most of it still believes me. Here is the next comfortable truth."',
+    'The Fog flickers, its edges fraying. "You keep choosing the hard answer. Tiresome. But I have older lies than you have facts. Try this one on."',
+    'The Fog gutters like a candle in wind. "Fine. You’ve taken the wired rooms, the remembering rooms, the growing rooms. Plenty of mind left that fears the truth more than it fears me."',
+    'What is left of the Fog barely holds a face. "One region. One. And then the Exam — where every mind, in the end, reaches for the easy answer. We’ll see whose voice it trusts then."',
+  ],
+  // final confrontation, played as a cutscene at the Examination Gate.
+  finale: [
+    {
+      tint: 'cold', art: 'portrait', palette: FOG_PALETTE, kicker: 'The Exam of the Self',
+      text: 'At the Examination Gate the Fog waits — all of it, pulled into one last thin shape. "Five regions. You really mapped the whole sorry thing." It almost laughs. "But a mind under pressure forgets what it learned and reaches for what feels obvious. That is where I live. That is where I always win."',
+    },
+    {
+      tint: 'cold', art: 'portrait', palette: ATLAS_PALETTE,
+      text: 'Atlas answers, bright and unafraid: "Not this mind. It does not have to KNOW every answer. It only has to keep doing what the cartographer taught it — ask, check, doubt the easy answer, and look again. That habit is what you can never fog over."',
+    },
+    {
+      tint: 'dusk',
+      text: 'The Fog reaches for one more comfortable lie — and finds the mind reaching, instead, for the evidence. It has nowhere left to settle. Thinning, thinning, it loses its face and is only weather again, then not even that. The inner world lights up, region to region, whole.',
+    },
+  ],
+};
+
+// ---------------- MISCONCEPTION WRAITHS (faces of the Fog) ----------------
 // HP = your confidence's mirror; each wraith voices common, tempting MISTAKES
 // (the kind that show up as exam distractors). Choose the correct refutation to
 // damage it; a wrong choice costs your confidence. Every claim is a real
-// misconception with an in-scope correction.
+// misconception with an in-scope correction. `keystone` flags the first region
+// as the storyline's KEYSTONE BEAT (extra in-character framing + Atlas coach).
 export const WRAITHS = {
   'ap-bio': {
-    name: 'The Wire Wraith', tag: 'a misconception of the synapse',
+    name: 'The Fog — Wired-Wrong', face: 'The Fog', tag: 'wearing the lie of the synapse',
+    keystone: true,
+    taunt: 'The Fog leans close, helpful as a friend. "Relax. The brain is just wiring — a current runs straight from one cell into the next, no gaps, no fuss. Believe that and you can stop digging. Comfortable, isn’t it?"',
+    coach: 'Atlas’s light steadies you. "It thickened because you reached for the easy picture. Look at what’s really there: a tiny gap between every neuron — the synapse — bridged not by current but by chemical messengers. Inside a cell the signal is electrical; between cells it is chemical. Answer it with THAT and the Fog has nothing to hold."',
+    humbled: 'The Fog recoils from the truth of the synapse, its grey thinning to nearly nothing here. "…Fine. This room is yours, cartographer. There are others that still believe me."',
     claims: [
       {
         claim: 'Neurons are soldered together like wires — electricity passes straight from one into the next with nothing in between.',
@@ -229,7 +360,10 @@ export const WRAITHS = {
     ],
   },
   'ap-cognition': {
-    name: 'The Recorder Wraith', tag: 'a misconception of memory',
+    name: 'The Fog — The Recorder', face: 'The Fog', tag: 'wearing the lie that memory replays',
+    taunt: 'The Fog drifts through the archipelago. "Memory? Easy. The mind is a camera — it records what happens and plays it back, exact, forever. Trust your tape. Why would it ever lie to you?"',
+    coach: 'Atlas glows steady. "It thickened because the camera story FEELS true. But memory is reconstructive — it rebuilds the past each time and can be reshaped by misleading information after the fact. Meet it with the reconstructive truth, not the tape."',
+    humbled: 'The Fog frays as the truth lands. "…So this mind knows it can be fooled. Inconvenient. The archipelago is yours."',
     claims: [
       {
         claim: 'Memory works like a video camera: it records events exactly and plays them back unchanged.',
@@ -252,7 +386,10 @@ export const WRAITHS = {
     ],
   },
   'ap-dev': {
-    name: 'The Tangle Wraith', tag: 'a misconception of learning',
+    name: 'The Fog — The Tangle', face: 'The Fog', tag: 'wearing the lie that all learning is one thing',
+    taunt: 'The Fog tangles through the grove. "Learning, conditioning, rewards, punishment — it’s all one blur, isn’t it? A creature does a thing, gets a treat, learns. Don’t make it complicated. Blur it all together with me."',
+    coach: 'Atlas burns clear. "It thickened on the blur. There are real distinctions here: classical conditioning links two STIMULI; operant conditioning links a BEHAVIOR to its consequence; and reinforcement strengthens behavior while punishment weakens it. Untangle them and the Fog can’t hide in the muddle."',
+    humbled: 'The Fog loosens, its knots coming undone. "…You pulled the threads apart. The grove is yours, cartographer."',
     claims: [
       {
         claim: 'Classical conditioning is when a learner\'s behavior earns a reward — like a rat pressing a lever for food.',
@@ -275,7 +412,10 @@ export const WRAITHS = {
     ],
   },
   'ap-social': {
-    name: 'The Blame Wraith', tag: 'a misconception of social judgment',
+    name: 'The Fog — The Blamer', face: 'The Fog', tag: 'wearing the lie that character explains everything',
+    taunt: 'The Fog settles over the plaza like a verdict. "Someone messes up? It’s WHO they are. Lazy, rude, weak — character, plain and simple. The situation? An excuse. Judge fast. Judge the person. It’s so much easier."',
+    coach: 'Atlas steadies the crowd-noise. "It thickened on the easy verdict — that pull to blame character and ignore the situation IS the fundamental attribution error. Weigh the circumstances before the person and the Fog loses its hold here."',
+    humbled: 'The Fog recoils, its certainty cracking. "…You weighed the situation. Fewer minds do than you’d think. The plaza is yours."',
     claims: [
       {
         claim: 'When people mess up, it\'s almost always their character. The situation hardly ever matters.',
@@ -298,7 +438,10 @@ export const WRAITHS = {
     ],
   },
   'ap-health': {
-    name: 'The Stigma Wraith', tag: 'a misconception of mental health',
+    name: 'The Fog — The Stigma', face: 'The Fog', tag: 'wearing the cruelest lie, about suffering',
+    taunt: 'The Fog gathers over the springs, almost gentle. "Disorders? People just aren’t trying. It’s a choice, a weakness. Nothing real, nothing treatable. Believe that and you never have to help anyone — least of all yourself."',
+    coach: 'Atlas’s light is warm and unwavering. "It thickened on the cruelest lie. Psychological disorders are real conditions — distress or impairment with biological, cognitive, and social roots — and there are effective, evidence-based treatments. Stigma itself blocks care. Answer with that truth, kindly and plainly."',
+    humbled: 'The Fog dissolves, the last of its grey lifting from the warm water. "…A mind that knows suffering is real, and treatable, has no room left for me. The springs are yours."',
     claims: [
       {
         claim: 'People with psychological disorders just aren\'t trying hard enough — disorders aren\'t real conditions.',

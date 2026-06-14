@@ -29,7 +29,17 @@ import * as Sfx from '../../sfx.js';
 import {
   ERAS, ERA_GATES, GOODS, CITIES, TRANSPORTS, PERKS, QUESTS, NPCS,
   ZONES, EVENTS, AMBIENT_PER_CITY, topicsForEra, COLD_OPEN,
+  ERA2_OPEN, ERA3_OPEN, ERA4_OPEN, CHANGAN_MOTHER, CALICUT_MOTHER, VELL_RESOLVE,
 } from './content.js';
+
+// Story-beat cutscene registry — each plays once, gated by a story flag. The
+// whole game's narrative spine (era legs of the mother's road, the mother
+// mystery, the Vell resolution) is driven through this one table so beats can
+// fire from the era gate, from city arrival, or from dialogue uniformly.
+const STORY_BEATS = {
+  ERA2_OPEN, ERA3_OPEN, ERA4_OPEN, CHANGAN_MOTHER, CALICUT_MOTHER, VELL_RESOLVE,
+};
+const HOUSE_MAX = 28; // arc-wide cap so the meter climbs tastefully over 4 eras
 
 const DEFAULTS = {
   v: 2, // bumped for the story rebuild — old pre-story saves reset so the cold open plays
@@ -145,8 +155,9 @@ export async function initGame(api) {
       era: S.era, eraName: ERAS[S.era].name,
       level: pr.level, xpFrac: pr.frac, perkPts: S.perkPts,
     });
-    // House Standing appears once the story has begun, at near-zero, climbing.
-    hud.setHouse(story.chapter >= 1 ? (S.house.standing || 0) : null);
+    // House Standing appears once the story has begun, at near-zero, climbing
+    // toward the arc-wide cap over the whole game.
+    hud.setHouse(story.chapter >= 1 ? (S.house.standing || 0) : null, HOUSE_MAX);
   }
 
   // raise the family's name — the emotional payoff of a story win. A satisfying
@@ -160,6 +171,26 @@ export async function initGame(api) {
     particles.burst('coin', player.pos.x, player.pos.y, player.pos.z, 12);
     if (title) UI.banner(title, sub || '', 3400);
     refreshHud();
+  }
+
+  // Play a one-time story cutscene, gated by a story flag, then optionally lift
+  // House Standing on the emotional beat. The whole narrative spine (era legs,
+  // the mother mystery, the Vell resolution) flows through this single helper so
+  // beats fire identically from the era gate, from a city arrival, or from
+  // dialogue. Returns true if it played, false if the flag was already set.
+  function playStoryBeat(flagKey, beatsName, houseRaise = 0, houseTitle = '', houseSub = '') {
+    if (!beatsName) return false;
+    if (story.is(flagKey)) return false;
+    const beats = STORY_BEATS[beatsName];
+    if (!beats) return false;
+    story.flag(flagKey);
+    // playCutscene pushes a UI overlay; the engine pauses under it via the
+    // Panels handler wiring and resumes on close. The House lift lands AFTER the
+    // beats so the meter pulse is the last thing the player sees.
+    playCutscene(beats).then(() => {
+      if (houseRaise > 0) raiseHouse(houseRaise, houseTitle, houseSub);
+    });
+    return true;
   }
 
   function currentQuestEntry() {
@@ -380,6 +411,12 @@ export async function initGame(api) {
       // story hooks the keystone beat uses: raise the house's name; the rest
       // (flags, is) are read straight off `story` in dialogue effects.
       raiseHouse(n, title, sub) { raiseHouse(n, title, sub); },
+      // let a dialogue effect fire a story cutscene (e.g. the Vell resolution).
+      // The dialogue overlay closes first, then the cutscene plays over the
+      // paused world. flagKey gates it so it plays exactly once.
+      playStory(flagKey, beatsName, houseRaise = 0, houseTitle = '', houseSub = '') {
+        setTimeout(() => playStoryBeat(flagKey, beatsName, houseRaise, houseTitle, houseSub), 60);
+      },
     };
   }
 
@@ -513,6 +550,11 @@ export async function initGame(api) {
       refreshNPCVisibility();
       refreshMarkers();
       refreshHud();
+      // Each new era is the next leg of your mother's road east, and a Vell
+      // escalation — a 2-beat story cutscene that plays once. +1 House for
+      // committing the house to the longer road.
+      const eraBeat = { 2: ['era2opened', 'ERA2_OPEN'], 3: ['era3opened', 'ERA3_OPEN'], 4: ['era4opened', 'ERA4_OPEN'] }[S.era];
+      if (eraBeat) playStoryBeat(eraBeat[0], eraBeat[1], 1, 'The house commits to the road', 'You take up the next leg of your mother\'s line east.');
     }
   }
   function checkWin() {
@@ -544,7 +586,22 @@ export async function initGame(api) {
       }
       quests.notifyVisit(inCity.id);
       refreshMarkers();
+      maybeMotherBeat(inCity.id);
     } else if (!inCity) nearCity = null;
+  }
+
+  // The mother mystery pays off at the far ends of her line. Reaching Chang'an
+  // (the word she underlined) and, later, Calicut (the far shore) each triggers
+  // a one-time story cutscene that resolves what became of her last caravan —
+  // real-history-plausible (the eastern road that became the Silk Road's reach)
+  // and emotionally satisfying — with a big House Standing rise after.
+  function maybeMotherBeat(cityId) {
+    if (story.chapter < 1) return;
+    if (cityId === 'changan') {
+      playStoryBeat('motherChangan', 'CHANGAN_MOTHER', 4, 'You found her road', 'Chang\'an speaks your mother\'s name — she paid the debt the honest way, to the end.');
+    } else if (cityId === 'calicut') {
+      playStoryBeat('motherCalicut', 'CALICUT_MOTHER', 4, 'The book is closed', 'Her last page comes home — the House of the Open Road owes no one.');
+    }
   }
 
   // ---------- panels coexistence (re-register engine handlers) ----------
@@ -640,6 +697,12 @@ export async function initGame(api) {
       goto(cityId) { const c = cityById[cityId]; player.teleport(c.x, c.z + 6); pack.teleportBehind(); },
       giveCedar() { econ.addGood('cedar', 2); refreshHud(); refreshMarkers(); },
       talk(npcId) { const r = npcRecs.find(x => x.spec.id === npcId); if (r) openDialogue(r.npc, r.spec.dialogue, dialogueCtx(r.spec)); },
+      // story verification: list the registered cutscene beat names, force-play
+      // one ignoring its gate, raise the house, and inspect/raise the era.
+      beats() { return Object.keys(STORY_BEATS); },
+      playBeat(name) { const b = STORY_BEATS[name]; if (b) return playCutscene(b); },
+      house(n = 1) { raiseHouse(n, 'Standing rises', ''); return S.house.standing; },
+      setEra(n) { S.era = n; save(); refreshNPCVisibility(); refreshMarkers(); refreshHud(); },
       reset() { store.reset(); location.reload(); },
     },
   };

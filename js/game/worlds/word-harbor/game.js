@@ -15,16 +15,20 @@ import * as Read from '../../../learn/read-aloud.js';
 import { ISLES } from '../../../worlds/word-harbor.js';
 
 import { createSave } from '../../save.js';
+import { createStory } from '../../story.js';
+import { playCutscene } from '../../cutscene.js';
 import { createNPCSystem } from '../../npc.js';
 import { createParticles } from '../../particles.js';
+import { openDialogue } from '../../dialogue.js';
 import * as UI from '../../ui.js';
 import * as Sfx from '../../sfx.js';
 
-import { ISLANDS, BUILDINGS, BRIDGES, STORIES, COMPASS } from './content.js';
+import { ISLANDS, BUILDINGS, BRIDGES, STORIES, COMPASS, COLD_OPEN, MIRA, KEYSTONE, QUIET_STAGES } from './content.js';
 import { openGemCard, openBook, findTerm } from './book.js';
 import { openBridgePuzzle, buildBridgeMesh, buildBridgeSite } from './bridge.js';
 import { openPictureMatch, openWordSort, openListenFind, openLanterns, openTimeTravel } from './festival.js';
 import { openStory } from './storybook.js';
+import { paintPic } from './pics.js';
 
 const esc = UI.esc;
 const ISLE_OF = {
@@ -35,7 +39,7 @@ const WAVE = 12;        // uncollected gems visible per island at once
 const GEM_CAP = 140;    // instanced mesh capacity
 
 const DEFAULTS = {
-  v: 1,
+  v: 2, // bumped for the story rebuild — old pre-story saves reset so the cold open plays
   gems: {},        // termEn -> 1
   bridges: {},     // bridgeId -> 1
   builds: {},      // buildingId -> 1
@@ -45,6 +49,10 @@ const DEFAULTS = {
   played: {},      // festival stall -> times
   won: false,
   flags: {},
+  // narrative spine — chapter/beat/flags migrate cleanly onto old saves.
+  // story flags this world reads: firstWord, helpedBula, townLit.
+  story: { chapter: 0, beat: 'coldopen', flags: {} },
+  helped: {},      // neighborId -> 1 (gentle keystone progress)
   pos: null,
 };
 
@@ -70,6 +78,9 @@ export async function initGame(api) {
   const store = createSave('word-harbor', DEFAULTS);
   const S = store.state;
   const save = () => store.save();
+  if (!S.helped) S.helped = {};           // defensive for pre-story saves
+  const story = createStory({ state: S, save });
+  let miraNpc = null, miraLamp = null, bulaMarker = null; // story-NPC refs
 
   const gloss = await (await fetch(def.glossary)).json();
 
@@ -450,6 +461,189 @@ export async function initGame(api) {
     });
   }
 
+  // ---------- THE QUIET → town light (the gentle feedback meter) ----------
+  // Not a score and never scary: a soft 0..100 measure of how much of the
+  // harbor is lit. Words, bridges, buildings and helped neighbors each add a
+  // little light, so the Quiet visibly RECEDES as you play. Read off live.
+  function townLight() {
+    const wordFrac = Math.min(1, wordCount() / 40);              // up to ~55
+    const bridgeFrac = Object.keys(S.bridges).length / BRIDGES.length; // up to 18
+    const buildFrac = Object.keys(S.builds).length / BUILDINGS.length; // up to 18
+    const helpFrac = Math.min(1, Object.keys(S.helped).length / 1);    // up to 9
+    return Math.round(wordFrac * 55 + bridgeFrac * 18 + buildFrac * 18 + helpFrac * 9);
+  }
+  function quietLine() {
+    const v = townLight();
+    for (const s of QUIET_STAGES) if (v < s.upTo) return s.light;
+    return QUIET_STAGES[QUIET_STAGES.length - 1].light;
+  }
+
+  // lightLamp — the warm payoff of a story win: a soft chime, a confetti +
+  // sparkle puff at your feet, a gentle banner. The emotional equivalent of
+  // Trade Winds' raiseHouse, but kind: you "light a lamp", you never "score".
+  function lightLamp(sub) {
+    Sfx.questDone();
+    particles.burst('confetti', player.pos.x, player.pos.y + 1.6, player.pos.z, 22);
+    particles.burst('sparkle', player.pos.x, player.pos.y + 0.8, player.pos.z, 14);
+    UI.banner('A lamp lights', sub || quietLine(), 3200);
+    refreshHud();
+    updateGoal();
+  }
+
+  // ---------- Mira: the warm recurring mentor (openDialogue + portrait) ------
+  // ctx exposes the gentle story hooks her dialogue needs: flag/is/wordCount +
+  // lightLamp. She greets you, gives the first word, and recurs as the town
+  // wakes (her start() reads the story flags).
+  function dialogueCtx() {
+    return {
+      story,
+      flag: (k, v = true) => story.flag(k, v),
+      is: (k) => story.is(k),
+      wordCount,
+      lightLamp: (sub) => lightLamp(sub),
+    };
+  }
+  {
+    const x = MIRA.npcPos[0], z = MIRA.npcPos[1];
+    const mira = npcSys.addNPC({
+      id: 'mira', name: MIRA.name, title: MIRA.title,
+      x, z, palette: MIRA.palette, hatKind: MIRA.hatKind,
+      face: Math.atan2(player.pos.x - x, player.pos.z - z),
+      labelColor: '#ffe1a0',
+    });
+    // a soft lamp-glow marker so the mentor reads as "the warm light" of town
+    const lampGeo = new THREE.OctahedronGeometry(0.22);
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd27a });
+    const lamp = new THREE.Mesh(lampGeo, lampMat);
+    lamp.position.y = 2.4;
+    mira.group.add(lamp);
+    miraLamp = lamp;
+    stations.addExtra({
+      id: 'npc-mira', type: 'npc', verb: 'Talk to', label: MIRA.name,
+      pos: mira.group.position, interactR: 8,
+      onInteract() {
+        // when the town is fully lit, let Mira reflect that
+        if (townDone() && S.won && !story.is('townLit')) story.flag('townLit');
+        openDialogue(mira, MIRA.dialogue, dialogueCtx());
+      },
+    });
+    miraNpc = mira;
+  }
+
+  // ---------- Bula: the gentle keystone neighbor (help with the RIGHT word) --
+  // The whole point, gentle version: you advance the warm story by GIVING the
+  // word whose MEANING matches what your neighbor needs. A not-quite-right word
+  // never fails — Bula re-teaches kindly (picture-first) and you try again.
+  {
+    const x = KEYSTONE.npcPos[0], z = KEYSTONE.npcPos[1];
+    const bula = npcSys.addNPC({
+      id: 'bula', name: KEYSTONE.name, title: KEYSTONE.title,
+      x, z, palette: KEYSTONE.palette, hatKind: KEYSTONE.hatKind,
+      face: Math.atan2(player.pos.x - x, player.pos.z - z),
+      labelColor: '#cdeec0',
+    });
+    const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.18), new THREE.MeshBasicMaterial({ color: 0x9bd47e }));
+    marker.position.y = 2.2;
+    bula.group.add(marker);
+    bulaMarker = marker;
+    stations.addExtra({
+      id: 'npc-bula', type: 'npc', verb: 'Help', label: KEYSTONE.name,
+      pos: bula.group.position, interactR: 8,
+      onInteract() { openKeystone(bula); },
+    });
+  }
+
+  // the gentle keystone overlay — picture-first, no timer, no fail, TTS-able
+  function openKeystone() {
+    const helped = !!S.helped[KEYSTONE.id];
+    let hintsOn = false;
+    try { hintsOn = localStorage.getItem('mmw-wh-hints') === '1'; } catch (e) { /* fresh */ }
+    UI.push({
+      className: 'wh-fest-layer',
+      html: '<div class="wh-fest-card wh-keystone-card"></div>',
+      dismissible: true,
+      onClose() { Read.stop(); },
+      onMount(el, { close }) { render(el.querySelector('.wh-keystone-card'), close); },
+    });
+
+    function render(card, close, reteach) {
+      // already-helped: a warm "thank you" replay, no challenge
+      if (helped) {
+        card.innerHTML = `
+          <div class="wh-bridge-head"><b>${esc(KEYSTONE.name)}</b>
+            <span class="wh-bridge-sub">${esc(KEYSTONE.title)}</span>
+            <button class="dlg-x" data-gui-close>LEAVE</button></div>
+          <canvas class="wh-story-pic wh-ks-pic" aria-hidden="true"></canvas>
+          <p class="wh-story-en">${esc(KEYSTONE.win.en)}
+            ${Read.buttonHTML(KEYSTONE.win.en, { lang: 'en-US', label: 'Read aloud' })}</p>
+          <div class="wh-story-nav"><button class="wh-btn" data-gui-close>YOU ARE WELCOME</button></div>`;
+        requestAnimationFrame(() => paintPic(KEYSTONE.win.pic || 'compass', card.querySelector('.wh-ks-pic')));
+        Read.speak(KEYSTONE.win.en, { lang: 'en-US', rate: 0.85 });
+        return;
+      }
+      const q = KEYSTONE.prompt;
+      card.innerHTML = `
+        <div class="wh-bridge-head"><b>${esc(KEYSTONE.name)} needs a word</b>
+          <span class="wh-bridge-sub">Give the RIGHT word — wrong is never a problem</span>
+          <button class="dlg-x" data-gui-close>LEAVE</button></div>
+        <canvas class="wh-story-pic wh-ks-pic" aria-hidden="true"></canvas>
+        <p class="wh-story-en">${esc(q.en)}
+          ${Read.buttonHTML(q.en, { lang: 'en-US', label: 'Read the question aloud' })}</p>
+        ${reteach ? `<p class="wh-bridge-tryagain">${esc(reteach.en)}
+          ${Read.buttonHTML(reteach.en, { lang: 'en-US', label: 'Read aloud' })}</p>` : ''}
+        <div class="wh-ks-choices">
+          ${KEYSTONE.choices.map((c, i) => `
+            <button class="wh-ks-choice" data-i="${i}">
+              <canvas class="wh-ks-thumb" aria-hidden="true"></canvas>
+              <span>${esc(c.label)}</span>
+            </button>`).join('')}
+        </div>
+        <div class="wh-story-hints" style="display:${hintsOn ? 'block' : 'none'}">
+          <p lang="zh-Hans"><span class="wh-hint-lab">中文</span> ${esc(q.zh)}</p>
+          <p lang="es"><span class="wh-hint-lab">Español</span> ${esc(q.es)}</p>
+        </div>
+        <div class="wh-story-nav">
+          <button class="wh-btn wh-hint-toggle ${hintsOn ? 'on' : ''}">${hintsOn ? 'HIDE HINTS' : '中文 / ESPAÑOL'}</button>
+          <span class="wh-fest-tip">Take all the tries you need</span>
+        </div>`;
+      requestAnimationFrame(() => {
+        paintPic(KEYSTONE.pic || 'compass', card.querySelector('.wh-ks-pic'));
+        card.querySelectorAll('.wh-ks-choice').forEach((b, i) => paintPic(KEYSTONE.choices[i].pic, b.querySelector('.wh-ks-thumb')));
+      });
+      Read.speak(q.en, { lang: 'en-US', rate: 0.82 });
+      card.querySelector('.wh-hint-toggle').addEventListener('click', () => {
+        Sfx.click(); hintsOn = !hintsOn;
+        try { localStorage.setItem('mmw-wh-hints', hintsOn ? '1' : '0'); } catch (e) { /* no-op */ }
+        render(card, close, reteach);
+      });
+      card.querySelectorAll('.wh-ks-choice').forEach(b => b.addEventListener('click', () => {
+        const c = KEYSTONE.choices[+b.dataset.i];
+        if (c.right) {
+          // CORRECT — the world visibly changes: a warm scene opens, a lamp
+          // lights, the Quiet recedes one more step.
+          Sfx.good();
+          S.helped[KEYSTONE.id] = 1;
+          story.flag('helpedBula');
+          save();
+          close();
+          openStory({
+            title: KEYSTONE.name, npc: KEYSTONE.title,
+            lines: [{ pic: KEYSTONE.win.pic || 'compass', en: KEYSTONE.win.en, zh: KEYSTONE.win.zh, es: KEYSTONE.win.es }],
+            doneLabel: 'A LAMP LIGHTS',
+            onDone() { lightLamp('You used the right word, and the town has water again.'); },
+          });
+        } else {
+          // NOT-QUITE-RIGHT — never a red X. Bula re-teaches gently (picture +
+          // why) and you simply try again from understanding.
+          Sfx.bad();
+          b.classList.remove('wobble'); void b.offsetWidth; b.classList.add('wobble');
+          if (c.reteach) Read.speak(c.reteach.en, { lang: 'en-US', rate: 0.85 });
+          render(card, close, c.reteach);
+        }
+      }));
+    }
+  }
+
   // a few ambient villagers around the plaza from day one
   const villagers = [];
   for (let i = 0; i < 4; i++) {
@@ -695,10 +889,36 @@ export async function initGame(api) {
     </div>
     <div class="tb-block" title="Sentence-bridges built"><span class="tb-lab">BRIDGES</span> <b id="wh-nbridges">0/7</b></div>
     <div class="tb-block" title="Town buildings raised"><span class="tb-lab">TOWN</span> <b id="wh-nbuilds">0/9</b></div>
+    <div class="tb-block wh-light-block" title="How much of the harbor is lit — the Quiet recedes as you play">
+      <span class="tb-lab">LIGHT</span>
+      <span class="wh-light-track"><span id="wh-light-fill" class="wh-light-fill"></span></span>
+    </div>
     <button id="wh-book" class="tb-btn">BOOK</button>
     <button id="wh-town" class="tb-btn">TOWN</button>
   `;
   document.body.appendChild(bar);
+  // namespaced inline styles for the new story bits (we may NOT edit game.css).
+  if (!document.getElementById('wh-story-style')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'wh-story-style';
+    styleEl.textContent = `
+      #wh-bar .wh-light-block { gap: 6px; }
+      #wh-bar .wh-light-track { display:inline-block; width:64px; height:9px; border-radius:6px;
+        background: rgba(20,22,30,0.55); overflow:hidden; vertical-align:middle; }
+      #wh-bar .wh-light-fill { display:block; height:100%; width:0%;
+        background: linear-gradient(90deg,#ffcf7a,#ffe6b0); transition: width 0.6s ease; }
+      .wh-keystone-card .wh-ks-pic { width:100%; max-width:360px; aspect-ratio: 5/3; margin: 0 auto 10px; display:block; border-radius:10px; }
+      .wh-ks-choices { display:flex; flex-direction:column; gap:10px; margin: 6px 0 4px; }
+      .wh-ks-choice { display:flex; align-items:center; gap:12px; text-align:left;
+        padding:10px 12px; border-radius:12px; cursor:pointer; font-size:16px; line-height:1.3;
+        background: rgba(255,255,255,0.06); border:2px solid rgba(255,210,130,0.35); color: inherit; }
+      .wh-ks-choice:hover { background: rgba(255,210,130,0.14); }
+      .wh-ks-thumb { width:54px; height:40px; flex:0 0 auto; border-radius:8px; }
+      .wh-ks-choice span { flex:1 1 auto; }
+      #wh-goal .qt-quiet { display:block; margin-top:3px; font-size:12px; opacity:0.78; font-style:italic; }
+    `;
+    document.head.appendChild(styleEl);
+  }
   const tracker = document.createElement('button');
   tracker.id = 'wh-goal';
   document.body.appendChild(tracker);
@@ -723,15 +943,21 @@ export async function initGame(api) {
     bar.querySelector('#wh-nwords').textContent = wordCount();
     bar.querySelector('#wh-nbridges').textContent = `${Object.keys(S.bridges).length}/${BRIDGES.length}`;
     bar.querySelector('#wh-nbuilds').textContent = `${Object.keys(S.builds).length}/${BUILDINGS.length}`;
+    const fill = bar.querySelector('#wh-light-fill');
+    if (fill) fill.style.width = Math.max(6, townLight()) + '%';
   }
 
-  // ---------- goals (the gentle quest line) ----------
+  // ---------- goals (the gentle quest line, framed as the arrival story) ----
   function nextGoal() {
-    if (!S.stories['st-arrive']) return { text: 'Talk to the Harbor Guide', at: [4, 112] };
+    // the story opens with Mira, the lamplighter who hands you your first word
+    if (!story.is('firstWord')) return { text: 'Talk to Mira, the lamplighter', at: MIRA.npcPos };
     if (wordCount() < 3) {
       const g = active.find(r => r.islandId === 'home') || active[0];
-      return { text: 'Collect 3 word-gems on the beach', at: g ? [g.x, g.z] : [0, 110] };
+      return { text: 'Collect 3 word-gems on the beach — light the Quiet', at: g ? [g.x, g.z] : [0, 110] };
     }
+    if (!S.stories['st-arrive']) return { text: 'Hear the Harbor Guide\'s welcome', at: [4, 112] };
+    // the gentle keystone: help Bula find water with the right word
+    if (!S.helped[KEYSTONE.id]) return { text: 'Help Bula by the well — give the right word', at: KEYSTONE.npcPos };
     if (!S.bridges['br-geo']) return { text: 'Build the Compass Bridge (north shore)', at: [0, 21] };
     if (!S.compass) return { text: 'Take the compass lesson on Geography Isle', at: [0, -38] };
     if (!S.stories['st-geo']) return { text: 'Talk to the Mapmaker on Geography Isle', at: [6, -32] };
@@ -745,7 +971,8 @@ export async function initGame(api) {
 
   function updateGoal(announce = false) {
     const g = nextGoal();
-    tracker.innerHTML = `<span class="qt-name">NEXT</span><span class="qt-obj">${esc(g.text)}</span>`;
+    tracker.innerHTML = `<span class="qt-name">NEXT</span><span class="qt-obj">${esc(g.text)}</span>` +
+      `<span class="qt-quiet">${esc(quietLine())}</span>`;
     if (g.at) {
       const y = field.height(g.at[0], g.at[1]);
       stations.setBeacon({ pos: new THREE.Vector3(g.at[0], Math.max(y, 0.4), g.at[1]) });
@@ -791,6 +1018,16 @@ export async function initGame(api) {
       gems.setMatrixAt(r.slot, dummy.matrix);
     }
     gems.instanceMatrix.needsUpdate = true;
+
+    // Mira's lamp + Bula's marker bob gently (skip alternate frames on mobile)
+    if (!isMobile || (t % 0.1 < 0.05)) {
+      if (miraLamp) { miraLamp.position.y = 2.4 + Math.sin(t * 1.6) * 0.12; miraLamp.rotation.y = t * 0.8; }
+      if (bulaMarker && !S.helped[KEYSTONE.id]) {
+        bulaMarker.visible = true;
+        bulaMarker.position.y = 2.2 + Math.sin(t * 2.2) * 0.1;
+        bulaMarker.rotation.y = t * 1.2;
+      } else if (bulaMarker) { bulaMarker.visible = false; }
+    }
 
     // villagers wave when you come close (the talk gesture doubles as a wave)
     waveT -= dt;
@@ -838,34 +1075,39 @@ export async function initGame(api) {
   if (S.pos) player.teleport(S.pos[0], S.pos[1]);
   Sfx.startAmbient();
 
+  // ---------- cold open ----------
+  // New Game opens on the arrival story, not a menu card: the boat reaches the
+  // warm island at dusk, the half-built quiet town, and Mira the lamplighter
+  // handing you your first word. The story begins (chapter 1); Mira's prompt
+  // waits at the plaza. Gentle by design — short lines, dusk tint, her portrait.
   if (!S.flags.intro) {
     S.flags.intro = true;
+    if (story.chapter < 1) story.chapter = 1;
     save();
-    UI.push({
-      className: 'gui-intro wh-intro',
-      html: `<div class="intro-card">
-        <div class="intro-kicker">WORD HARBOR</div>
-        <h2>You arrive by boat. Build your town with words.</h2>
-        <p>Every shining gem is a real history word. Tap a gem to hear it in
-          <b>English</b>, <b lang="zh-Hans">中文</b> and <b lang="es">Español</b> — then spend your words to build
-          bridges and houses. Words are never lost.</p>
-        <p>No timers. No falling. Nothing to lose. Take your time.</p>
-        <p class="intro-keys">${isMobile ? 'Left stick to move, drag to look, TAP the buttons that appear.' : 'WASD to move, mouse to look, E to collect and talk.'} B — word book, G — glossary.</p>
-        <button class="intro-go" data-gui-close>STEP ONTO THE DOCK</button>
-      </div>`,
-      dismissible: true,
-    });
+    refreshHud(); // the LIGHT meter appears now, near-empty, ready to climb
+    const controlsBeat = {
+      tint: 'amber', kicker: 'Your new home',
+      text: (isMobile
+        ? 'Left stick to move, drag to look, TAP a glowing word to act. No timers, nothing to lose. Find Mira at the plaza.'
+        : 'WASD to move, mouse to look, E to collect and talk. B — word book. No timers, nothing to lose. Find Mira at the plaza.'),
+      cta: 'Step onto the dock',
+    };
+    playCutscene([...COLD_OPEN, controlsBeat]);
   }
 
   // ---------- debug / verification hook ----------
   const game = {
-    S, gloss, active, termMap, islandOfTerm,
+    S, gloss, active, termMap, islandOfTerm, story,
     collect, openCompass, openFestivalMenu, openTownPanel, openWordBook, openBuildPanel,
     bridges: BRIDGES, buildings: BUILDINGS,
+    townLight, quietLine, lightLamp,
     save: () => save(),
     debug: {
       gems: () => active.map(r => ({ en: r.en, isle: r.islandId, x: +r.x.toFixed(1), z: +r.z.toFixed(1) })),
       grab(en) { collect(en); },
+      talkMira() { if (miraNpc) openDialogue(miraNpc, MIRA.dialogue, dialogueCtx()); },
+      helpBula() { openKeystone(); },
+      coldOpen() { story.chapter = 1; playCutscene([...COLD_OPEN, { tint: 'amber', text: 'Step onto the dock.', cta: 'Begin' }]); },
       grantCat(cat, n = 8) {
         const c = gloss.categories.find(x => x.name === cat);
         c.terms.slice(0, n).forEach(t => { S.gems[t.en] = 1; });

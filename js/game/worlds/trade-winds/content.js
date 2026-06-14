@@ -260,6 +260,94 @@ export const COLD_OPEN = [
   },
 ];
 
+// ---------------- ERA-TRANSITION CUTSCENES ----------------
+// When the player unlocks a new era, the story takes a breath: Anath frames the
+// new age as the next leg of your mother's road east toward Chang'an, and the
+// Vell escalate. Each plays ONCE (gated on a story flag in game.js). Palettes
+// reuse Anath (amber/dusk) and the Vell steel-blue so faces stay consistent.
+const ANATH_PAL = { robe: 0x9c6b2f, trim: 0x6b481d, skin: 0xb97f4e, hat: 0x5e3a1c };
+const VELL_PAL = { robe: 0x2c4a6e, trim: 0x18304a, skin: 0xb98a5e, hat: 0x16283c };
+
+export const ERA2_OPEN = [
+  {
+    tint: 'amber', kicker: 'Era II — The Classical World', art: 'portrait', palette: ANATH_PAL,
+    text: 'Years pass on the river roads, and the house grows. One morning Anath unrolls your mother\'s map. "Her line runs on, heir — past Ur, past the steppe, into the lands of the Greeks and the great kings of India and Han China. The same word still underlined at the end: Chang\'an. We can reach the classical world now. We follow her."',
+  },
+  {
+    tint: 'cold', kicker: 'The House of Vell', art: 'portrait', palette: VELL_PAL,
+    text: 'But the Vell have not forgotten Ur. Word comes that they have opened a counting-house in every classical port ahead of you, buying up wharves and bribing scribes. "They mean to own the road before you walk it," Anath warns. "Beat them the only way you ever have — by understanding it better than they do."',
+  },
+];
+
+export const ERA3_OPEN = [
+  {
+    tint: 'amber', kicker: 'Era III — The Post-Classical Roads', art: 'portrait', palette: ANATH_PAL,
+    text: 'Generations turn. Camels now where donkeys walked; the world is wider than your great-grandmother dreamed. "The roads have changed since your mother rode them," Anath says, tracing a route that swings south to the gold cities and east along a road men are starting to call the Silk Road. "But the underlined word has not moved. Chang\'an still waits at the end of her line."',
+  },
+  {
+    tint: 'dusk', kicker: 'The House of Vell', art: 'portrait', palette: VELL_PAL,
+    text: 'The Vell have grown too — a banking house now, with armed factors on the desert and the sea. They are spreading a useful lie: that the old House of the Open Road died on the road with its master, your mother. "Every market you walk into has heard we are ghosts," Anath says grimly. "So prove them wrong, loudly, with every honest contract."',
+  },
+];
+
+export const ERA4_OPEN = [
+  {
+    tint: 'amber', kicker: 'Era IV — The First Global Age', art: 'portrait', palette: ANATH_PAL,
+    text: 'The world has become one ocean. Florins in Florence, fleets off Calicut, a single sea-road that touches every shore at once. Anath is old now; his hand shakes on the map. "This is the last leg, heir. Reach the eastern road your mother underlined, and we will finally know what became of her. Whatever we find — your house is no longer dying. It is the largest it has ever been."',
+  },
+  {
+    tint: 'cold', kicker: 'The House of Vell', art: 'portrait', palette: VELL_PAL,
+    text: 'And the Vell make their last move: a standing offer, to every port at once, to buy the House of the Open Road outright and bury the name forever. "They are afraid of you now," Anath says, almost smiling. "Houses do not pay to bury a ghost. One more road, done right, and it is THEY who vanish from the markets — not us."',
+  },
+];
+
+// ---------------- MOTHER-MYSTERY CUTSCENES ----------------
+// The emotional spine, paid off on reaching the two cities at the far end of
+// her line. Real-history plausible: she rode east settling the house's debt on
+// a route that became the Silk Road's eastern reach, and the road kept her. Each
+// plays once (gated by a story flag in game.js) and lifts House Standing.
+export const CHANGAN_MOTHER = [
+  {
+    tint: 'cold', kicker: 'Chang\'an — the underlined word', art: 'notice',
+    text: 'You stand at last inside the grid-straight walls your mother drew at the end of her ledger. In the Western Market, an old Sogdian factor squints at your house\'s banner and goes very still. "The Open Road... a trader-woman of that house came through here, years past. Settling an old debt, she said — paying it off the honest way, one leg of road at a time, further east than her own house had ever reached."',
+  },
+  {
+    tint: 'dusk', art: 'portrait', palette: ANATH_PAL,
+    text: '"She made the debt good here, every coin," the factor says, "and then rode on east with a small caravan, into the new country beyond the passes — the road we are only now learning to call the Silk Road. The winter closed the passes behind her. No one I know saw her come back." Anath bows his head. "So she didn\'t run from the debt. She walked east and PAID it — and kept walking. That is the mother I knew."',
+  },
+  {
+    tint: 'amber', art: 'portrait', palette: ANATH_PAL,
+    text: '"Finish her road, heir," Anath says, steadier now. "Not to bring her home — the passes kept her, the way they keep so many. But to carry her name the whole length of the line she drew, so that every market from Byblos to the eastern sea knows the House of the Open Road paid what it owed and never stopped walking." The grief settles into something like pride.',
+  },
+];
+
+export const CALICUT_MOTHER = [
+  {
+    tint: 'cold', kicker: 'Calicut — the far shore', art: 'ledger',
+    text: 'In Calicut, where every sea-road on earth now meets, a Gujarati shipowner recognizes your seal and brings out a thing he has kept for years: a single page in your mother\'s own hand, sold to him long ago by an eastern caravan. The last entry on it balances the house\'s old debt to the cowrie — paid in full, signed, dated on a road that had no name yet.',
+  },
+  {
+    tint: 'amber', art: 'portrait', palette: ANATH_PAL,
+    text: 'Anath reads it twice, then laughs through tears. "She closed the book, heir. The debt that nearly buried us — she settled it herself, at the far end of the world, and trusted the road to carry the page home to whoever finished her line. It found you." He presses the page into the back of your ledger, beside her underlined Chang\'an. "The House of the Open Road owes no one. Your mother saw to that."',
+  },
+];
+
+// ---------------- VELL RESOLUTION ----------------
+// The rivalry's payoff in Era IV: the Vell, who tried to buy and bury the name,
+// are beaten not by undercutting but by a house that understood every road
+// better than they did. Plays once when the keystones are won and the player
+// confronts the senior Vell partner in Florence.
+export const VELL_RESOLVE = [
+  {
+    tint: 'cold', kicker: 'The House of Vell — the last word', art: 'portrait', palette: VELL_PAL,
+    text: 'In Florence the senior Vell partner himself waits, the standing offer to buy your name in his hand. But his factors are deserting to richer routes — the very roads you opened by understanding them: Ur, the Silk Road, Mali\'s gold, the monsoon sea. "Every road we tried to buy," he admits, "you had already learned. One cannot purchase that."',
+  },
+  {
+    tint: 'amber', art: 'portrait', palette: ANATH_PAL,
+    text: 'He tears the offer in two. The House of Vell withdraws from the great routes for good — beaten not by a cheaper price but by a house that knew WHY each road existed. Anath watches them go. "Your mother always said it: you do not win a road by owning it. You win it by understanding it. The House of the Open Road carries her name now, the whole length of the line she drew. We owe no one. We answer to no one. And we are not done walking."',
+  },
+];
+
 // ---------------- NPCS ----------------
 // Real figures carry real history; supporting characters carry period-true
 // names and trades. Dialogue trees reference quest/econ state through ctx.
@@ -499,9 +587,48 @@ export const NPCS = [
         lore: { text: 'Because memory dies and stories rot into legend. I check what I am told — when I cannot, I say so plainly and let the reader judge. Some call me the father of history for it. The method matters more than the name: ask, compare, doubt, record.', choices: [{ label: 'Then I will be your eyes east.', effect: ctx => { ctx.quests.accept('histories'); }, next: 'accepted' }] },
         accepted: { text: 'Listen in the markets of Ur and Varanasi — markets are where the truth slips out. Then come tell me everything.', choices: [] },
         during: { text: 'Ur on the river plain, Varanasi on the Ganges. Walk their markets, then bring me what you heard.', choices: [] },
+        // ★ KEYSTONE — Herodotus's METHOD. A Vell clerk has fed the historian a
+        // flattering tall tale (gold-digging ants); winning means knowing that
+        // history is ask-compare-DOUBT-record, not whatever the loudest informant
+        // swears to. Wrong answers re-route through the historian's own correction.
         turnin: {
-          text: 'Yes — ziggurats counted in courses of brick, a river city where the Buddha first taught nearby... this is GOLD, better than gold. The inquiry grows by your feet, trader.',
-          choices: [{ label: 'Happy to serve history.', effect: ctx => { ctx.quests.advance('histories'); }, next: 'after' }],
+          text: 'Sit — your eastern notes are gold. But first: a clerk in House-of-Vell blue was here an hour ago, and he swears that in the far east giant ants the size of foxes dig gold from the sand, and that he SAW it. He paid for a good meal and told it well. You have walked those roads. Do I write it down?',
+          choices: [
+            {
+              kind: 'say',
+              label: 'Write only that "the Vell agent claims it" — and that you doubt it. You did not see ants; you heard a man who heard it. A historia must keep what you witnessed apart from what you were merely told.',
+              effect: ctx => {
+                ctx.story.flag('herodotusWon');
+                ctx.bonus(20, 'You understand the method');
+                ctx.quests.advance('histories');
+                ctx.raiseHouse(2, 'The historian trusts you', 'Your name travels with the first true history of the world.');
+              },
+              next: 'histright',
+            },
+            {
+              kind: 'say',
+              label: 'Write it as fact. He swore he saw it with his own eyes, and a sworn eyewitness is the strongest proof there is.',
+              effect: ctx => { ctx.story.flag('vellFooledHerodotus'); },
+              next: 'histwrong',
+            },
+            {
+              kind: 'say',
+              label: 'Leave it out entirely. If you cannot prove a story true, a careful writer simply never mentions it.',
+              next: 'histhalf',
+            },
+          ],
+        },
+        histright: {
+          text: '(Herodotus laughs and reaches for his reed pen.) "Exactly so! I record what is said, and I say plainly whether I believe it — that is the whole of my method: ask, compare, DOUBT, record. The Vell would have had me print a fable under my own name." He marks you down as a trusted source. "A merchant with the historian\'s eye. Rare."',
+          choices: [{ label: 'History deserves better than gossip.', next: 'after' }],
+        },
+        histwrong: {
+          text: '(Herodotus writes it — then, weeks later, the agora is laughing at the gold-digging ants, and at the historian who believed a Vell clerk over a witness.) He finds you, stung but fair. "An oath is not proof, trader. Half the world will swear to a wonder it never saw. My method is to keep what I SAW apart from what I was TOLD, and to mark my doubt for the reader. Come — help me strike the fable and write it true."',
+          choices: [{ label: 'Then let me correct the record.', effect: ctx => { ctx.story.flag('vellFooledHerodotus', false); }, next: 'turnin' }],
+        },
+        histhalf: {
+          text: '(Herodotus shakes his head, not unkindly.) "Cut it out and you lose the truth that a man like that BELIEVES such things — that is itself worth knowing. I do not hide a tale; I report it AND my doubt of it, and let the reader judge. Try again: what do I actually write?"',
+          choices: [{ label: 'I understand — record it, but mark the doubt.', next: 'turnin' }],
         },
         silk: {
           text: 'And WHAT is this cloth? Lighter than linen, it pours like water — the agora will riot over it. From a land east of east, you say? It will fetch its weight in silver today and its weight in gold in Rome someday, mark me.',
@@ -552,7 +679,50 @@ export const NPCS = [
         lore: { text: 'Because the steppe fights on horseback and we must answer in kind — and good cavalry mounts do not breed well in our wet rice country. So we trade what only we make for what we cannot raise: bolts of silk for strings of horses. Whole dynasties will balance on that exchange.', choices: [{ label: 'Then put me on the road.', effect: ctx => { ctx.quests.accept('heavenlyhorses'); }, next: 'accepted' }] },
         accepted: { text: 'Horses are sold in the western highlands — Anatolian stock at Catalhoyuk trades fair. Two good mounts to me here. Then carry two bolts of our silk to that Greek writer in Athens — let the west see what the east weaves. Buy the silk here; nowhere on earth is it cheaper.', choices: [] },
         during: { text: 'Two horses to me at Chang\'an; then two silk to Herodotus in Athens; then report back. The whole Silk Road, in one errand.', choices: [] },
-        turnin: { text: 'The Greek raved about the cloth? Of course he did. Hear me, trader: you have just walked the route that will outlive every empire on it. They will call it the Silk Road, and you were early.', choices: [{ label: 'Collect the emperor\'s reward.', effect: ctx => { ctx.quests.advance('heavenlyhorses'); }, next: 'after' }] },
+        // ★ KEYSTONE — WHY the Silk Road exchange holds: complementary scarcity.
+        // China alone makes silk; only the steppe/Ferghana breeds warhorses China
+        // cannot raise in its wet rice country. A Vell trader has told the envoy
+        // the road runs on whoever charges least; the player wins by naming the
+        // real engine. Wrong answers re-route through Zhang Qian's correction.
+        turnin: {
+          text: 'The Greek raved about the cloth — good. But before the emperor\'s reward, settle a thing for me. A House-of-Vell trader stood here yesterday and offered to run this route cheaper than you. "It is all about price," he said. You have now carried silk west and horses east with your own hands. Tell me plainly: what truly makes this road WORK?',
+          choices: [
+            {
+              kind: 'say',
+              label: 'Not price — need. Only China makes silk, and only the western steppe breeds horses your wet rice country cannot raise. Each side has what the other simply cannot make. That is why silk flows west and horses east no matter who charges what.',
+              effect: ctx => {
+                ctx.story.flag('zhangqianWon');
+                ctx.bonus(30, 'You understand the road');
+                ctx.quests.advance('heavenlyhorses');
+                ctx.raiseHouse(2, 'The Han court knows your name', 'Your house is written into the road that will outlive every empire on it.');
+              },
+              next: 'hhright',
+            },
+            {
+              kind: 'say',
+              label: 'Price is everything. Whoever sells silk and horses cheapest will own this road — the Vell trader is right.',
+              effect: ctx => { ctx.story.flag('vellWonRound'); },
+              next: 'hhwrong',
+            },
+            {
+              kind: 'say',
+              label: 'The road works because the emperor commands it to. Imperial will, not goods, keeps the caravans moving.',
+              next: 'hhhalf',
+            },
+          ],
+        },
+        hhright: {
+          text: '"Need, not price — yes." Zhang Qian almost smiles. "Cut your price to nothing and you still cannot conjure silk in Ferghana or warhorses in the rice paddies. Two lands, each with what the other lacks — that is the engine the Vell will never undercut. They will call this the Silk Road, and you were early, and you UNDERSTOOD it." He seals the emperor\'s bonus into your purse.',
+          choices: [{ label: 'Collect the emperor\'s reward.', next: 'after' }],
+        },
+        hhwrong: {
+          text: '(Zhang Qian sets down the silk and shakes his head.) "Then race the Vell to the bottom and you both starve. Think, trader: drop your price to a single coin — can you make warhorses appear in our wet south? Can the steppe weave silk for any sum? No. The road runs on what each land CANNOT make for itself; price is only the haggling on top. The Vell would have you forget that and lose everything. Tell me again — what makes it work?"',
+          choices: [{ label: 'I see it now — let me answer true.', effect: ctx => { ctx.story.flag('vellWonRound', false); }, next: 'turnin' }],
+        },
+        hhhalf: {
+          text: '(Zhang Qian raises a brow.) "The emperor wishes it, surely — but emperors have wished for many roads that never opened. This one opened because the goods are TRUE: silk only we can make, horses only the steppe can breed. Command cannot conjure what a land cannot grow. The need is the engine; the emperor only paid for the road. Answer me once more."',
+          choices: [{ label: 'Complementary need — I have it now.', next: 'turnin' }],
+        },
         after: { text: 'Grapes and alfalfa came back in my saddlebags; silk and paper go west in yours. Roads change the world more than battles do.', choices: [] },
       },
     },
@@ -594,7 +764,7 @@ export const NPCS = [
         turnin: {
           text: 'Well supplied. Now advise your king, merchant — in Cairo I could scatter gold to every beggar in the city. Generosity honors God. What does it do to Cairo\'s gold price?',
           choices: [
-            { label: 'Flooding the market will CRASH the price — give measured alms.', effect: ctx => { ctx.bonus(35, 'You understand supply and demand'); ctx.quests.deliver('goldenhajj', ctx.econ); }, next: 'right' },
+            { label: 'Flooding the market will CRASH the price — give measured alms.', effect: ctx => { ctx.bonus(35, 'You understand supply and demand'); ctx.story.flag('mansaMusaWon'); ctx.quests.deliver('goldenhajj', ctx.econ); ctx.raiseHouse(2, 'A king takes your counsel', 'The mansa of Mali weighs your word — the House of the Open Road is named in gold.'); }, next: 'right' },
             { label: 'Gold is gold — the price cannot move. Scatter freely.', effect: ctx => { ctx.quests.deliver('goldenhajj', ctx.econ); }, next: 'wrong' },
           ],
         },
@@ -623,7 +793,50 @@ export const NPCS = [
         lore: { text: 'By the Dar al-Islam, friend — from Morocco to the Malay seas, a traveler finds the same law, lodging at the madrasas, and qadis who need an extra judge. Faith built the road network; trade keeps it swept. I rarely paid for a bed in thirty years.', choices: [{ label: 'I will walk the two legs.', effect: ctx => { ctx.quests.accept('longestjourney'); }, next: 'accepted' }] },
         accepted: { text: 'To the Ganges, then to the Silk Road\'s eastern gate. Markets, tolls, who rules, what the bread costs — bring me the details. Details are what make a Rihla worth reading.', choices: [] },
         during: { text: 'Varanasi, then Chang\'an. Walk them, watch them, return. My knees thank you for the loan of yours.', choices: [] },
-        turnin: { text: 'Tolls doubled at the crossroads, a new dynasty\'s coin in the east — yes, exactly the kind of truth that outlives gossip. You have the traveler\'s eye. Take this purse, and a word: the world is wider than any one sea\'s gossip. Go look at ALL of it.', choices: [{ label: 'Accept his blessing and the purse.', effect: ctx => { ctx.quests.advance('longestjourney'); }, next: 'after' }] },
+        // ★ KEYSTONE — the Dar al-Islam as a connected world. One traveler crossed
+        // from Morocco to China because a shared faith, law, and language of lodging
+        // knit the network together — culture and institutions, not armies, made it
+        // one road. A Vell man insists only paid guards keep travelers alive; the
+        // player wins by naming the real connective tissue. Wrong paths re-teach.
+        turnin: {
+          text: 'You walked my old road — good. Now answer the question I ask every traveler, because a Vell agent here gives me the wrong answer with great confidence. He says a man like me only survived thirty years of roads because someone PAID for guards every mile. But you have walked it now. HOW does one traveler cross half the world — Morocco to the Ganges to China — and find welcome the whole way?',
+          choices: [
+            {
+              kind: 'say',
+              label: 'Because it is one connected world, not a string of strangers. From Morocco to the Malay seas a traveler finds the same faith, the same law, madrasas that house him, and qadis who need a judge. Shared faith and law made the road one road — that is what carried you, not hired spears.',
+              effect: ctx => {
+                ctx.story.flag('ibnbattutaWon');
+                ctx.bonus(30, 'You grasp the connected world');
+                ctx.quests.advance('longestjourney');
+                ctx.raiseHouse(2, 'A famed traveler vouches for you', 'Your house is known wherever the Dar al-Islam reaches — from the Sahara to the China seas.');
+              },
+              next: 'ljright',
+            },
+            {
+              kind: 'say',
+              label: 'Only paid guards. The roads are safe because someone bought enough spears — the Vell man is right; coin and steel keep a traveler alive, nothing more.',
+              effect: ctx => { ctx.story.flag('vellWonRound'); },
+              next: 'ljwrong',
+            },
+            {
+              kind: 'say',
+              label: 'Pure luck. You simply met kind strangers again and again across thirty years.',
+              next: 'ljhalf',
+            },
+          ],
+        },
+        ljright: {
+          text: '(Ibn Battuta presses both your hands.) "One world — yes, that is the whole secret. The Dar al-Islam is a fabric: the same prayer in Delhi and in Mali, the same law, the madrasas that fed and bedded me for nearly thirty years. I rarely paid for a roof. Faith built the network; trade keeps it swept. The Vell sees only the spears and misses the WORLD." He hands you a heavy purse. "Go look at all of it."',
+          choices: [{ label: 'Accept his blessing and the purse.', next: 'after' }],
+        },
+        ljwrong: {
+          text: '(Ibn Battuta laughs, but corrects you.) "Spears? I bought few and met fewer. Think: who fed me in Delhi, judged beside me in the Maldives, lodged me in Mali — strangers, all, yet not strangers. We shared a faith, a law, a tongue of prayer. That fabric — the Dar al-Islam — is what let one man cross half the earth. The Vell man counts guards and cannot see the world that made guards unnecessary. Answer me again."',
+          choices: [{ label: 'I understand the fabric now — let me answer.', effect: ctx => { ctx.story.flag('vellWonRound', false); }, next: 'turnin' }],
+        },
+        ljhalf: {
+          text: '(Ibn Battuta shakes his head gently.) "Luck thirty years running? No traveler is that fortunate. It was not luck but a CONNECTED world — one faith, one law, madrasas and qadis from Morocco to China, all expecting a fellow believer. That sameness is what carried me. Name it plainly and the purse is yours."',
+          choices: [{ label: 'A shared world of faith and law — I have it.', next: 'turnin' }],
+        },
         after: { text: 'I have seen more of the world than any man of my age, and the secret is shameful: I simply did not go home. May your roads be long, trader.', choices: [] },
       },
     },
@@ -647,7 +860,7 @@ export const NPCS = [
         turnin: {
           text: 'Fine ware, well packed. Before the factors pay you — a navigator\'s question, since you sail these waters now. The fleet must return north and east to China. WHICH monsoon do we wait for?',
           choices: [
-            { label: 'The summer southwest monsoon — it blows from the sea toward Asia.', effect: ctx => { ctx.bonus(40, 'You read the monsoon like a pilot'); ctx.quests.deliver('treasurefleet', ctx.econ); }, next: 'right' },
+            { label: 'The summer southwest monsoon — it blows from the sea toward Asia.', effect: ctx => { ctx.bonus(40, 'You read the monsoon like a pilot'); ctx.story.flag('zhengheWon'); ctx.quests.deliver('treasurefleet', ctx.econ); ctx.raiseHouse(2, 'The admiral marks your chart', 'The greatest fleet on earth trusts your house with its course home.'); }, next: 'right' },
             { label: 'The winter northeast monsoon — it blows from Asia out to sea.', effect: ctx => { ctx.quests.deliver('treasurefleet', ctx.econ); }, next: 'wrong' },
           ],
         },
@@ -675,6 +888,82 @@ export const NPCS = [
         during: { text: 'Two manuscripts, three gold, to the palazzo. The library shelf I have in mind is exactly that wide.', choices: [] },
         turnin: { text: 'Aristotle in a Timbuktu binding — magnificent. The copyists go to work tonight; printed editions follow, and then no fire can ever take these words again. Your florins, trader, and Florence\'s thanks.', choices: [{ label: 'Accept the florins.', effect: ctx => { ctx.quests.deliver('patron', ctx.econ); }, next: 'after' }] },
         after: { text: 'They will call this century a golden age and forget it was bought one cargo at a time — by people exactly like you. The Medici remember.', choices: [] },
+      },
+    },
+  },
+  // ---- THE VELL, RECURRING ----
+  // The rival house follows you era to era, each agent a colder shade of the
+  // same steel-blue. They taunt before you've earned the era's keystone and
+  // shrink after — gated on the keystone story flags so the rivalry has a clock.
+  // Era IV's senior partner closes the arc with the resolution cutscene.
+  {
+    id: 'vell-east', name: 'Roshanak', title: 'Factor of the House of Vell', city: 'changan', era: 2,
+    offset: [-7, 6], hatKind: 'hood', palette: VELL_PAL,
+    dialogue: {
+      start: (ctx) => (ctx.story.is('zhangqianWon') || ctx.story.is('herodotusWon')) ? 'beaten' : 'taunt',
+      nodes: {
+        taunt: {
+          text: '(A Vell factor in travel-stained blue blocks the Western Market gate.) So the ghost-house reaches Chang\'an. We heard about your little win at Ur — one temple roof, how quaint. The House of Vell has counting-rooms in every port from here to the Greek sea now. Run your donkeys while you can, heir. The classical world is already ours.',
+          choices: [
+            { label: 'You said the same at Ur. How did that end?', next: 'jab' },
+            { label: 'We will see whose name the road remembers.', next: '@close' },
+          ],
+        },
+        jab: { text: 'A fluke. The priestess pitied a dead woman\'s child. It will not happen twice — we have bought the scribes who set the prices here. Enjoy the view of our wharves.', choices: [] },
+        beaten: {
+          text: '(The Vell factor will not quite meet your eye.) The Han court speaks your house\'s name now, and the Greek writer struck OUR story from his book and kept yours. Two roads we meant to own, and you understood both better than our gold could. (A pause.) The House of Vell does not forget. We will be waiting on the next road — and the next.',
+          choices: [{ label: 'I will be on it before you.', next: '@close' }],
+        },
+      },
+    },
+  },
+  {
+    id: 'vell-south', name: 'Garai', title: 'Banker of the House of Vell', city: 'timbuktu', era: 3,
+    offset: [6, 6], hatKind: 'hood', palette: VELL_PAL,
+    dialogue: {
+      start: (ctx) => (ctx.story.is('mansaMusaWon') || ctx.story.is('ibnbattutaWon')) ? 'beaten' : 'taunt',
+      nodes: {
+        taunt: {
+          text: '(A Vell banker counts gold dust on a brass scale and does not look up.) The Open Road, in Timbuktu. We have been telling this city a simple truth, heir: your house died on the eastern road with its master. A ghost cannot hold a contract. The mansa\'s court, the salt caravans, the book markets — the House of Vell banks them all now. You are a rumor with a donkey.',
+          choices: [
+            { label: 'My mother is missing. The house is not.', next: 'jab' },
+            { label: 'Spread your lie. I will spread honest contracts.', next: '@close' },
+          ],
+        },
+        jab: { text: 'Missing. Died. The market hears no difference, and the market is all that matters. Go on — try to outbid a banking house with a string of camels.', choices: [] },
+        beaten: {
+          text: '(The banker\'s scale has stopped moving.) The mansa took your counsel on the gold price over ours. The famed traveler vouches for your house in every caravanserai from here to China. Our "ghost" story is dead — one cannot bury a house the whole Dar al-Islam is talking about. (Coldly.) There is one more road, heir. The sea-road, the new global one. The House of Vell will make its stand there.',
+          choices: [{ label: 'Then I will meet you at the far shore.', next: '@close' }],
+        },
+      },
+    },
+  },
+  {
+    // ANTAGONIST'S RESOLUTION. The senior partner, in Florence. When the player
+    // has won the late keystones, talking to him plays the VELL_RESOLVE cutscene
+    // (via ctx.playStory) and secures the house's name for good.
+    id: 'vell-master', name: 'Lord Vasht', title: 'Master of the House of Vell', city: 'florence', era: 4,
+    offset: [-6, 6], hatKind: 'cap', palette: VELL_PAL,
+    dialogue: {
+      start: (ctx) => {
+        if (ctx.story.is('vellBeaten')) return 'gone';
+        const lateWins = (ctx.story.is('zhengheWon') ? 1 : 0) + (ctx.story.is('mansaMusaWon') ? 1 : 0) + (ctx.story.is('ibnbattutaWon') ? 1 : 0);
+        return lateWins >= 2 ? 'reckoning' : 'taunt';
+      },
+      nodes: {
+        taunt: {
+          text: '(The master of the House of Vell receives you in a Florentine palazzo, the standing offer to buy your name laid on the table between you.) Sit, heir. I have watched my factors lose to you on three continents and I have decided you are worth a fair price. Sell me the House of the Open Road — the name, the routes, the ledger. Walk away rich. Refuse, and I will simply outspend you until you vanish.',
+          choices: [
+            { label: 'Win the sea-road first. Then we will talk about who buys whom.', next: 'wait' },
+            { label: 'The house is not for sale. It never was.', next: 'wait' },
+          ],
+        },
+        wait: { text: 'Bold. Prove it on the new ocean, then — the monsoon coast, the treasure fleets, Calicut. Come back when you have. I will still be here, and my offer will be lower.', choices: [] },
+        reckoning: {
+          text: '(The master of the House of Vell rises slowly. His factors are gone — defected to the very roads you opened. The standing offer is still on the table.) You have walked every road we tried to buy, and understood each one before our gold could reach it. I came to Florence to bury a name. Instead I find it carved into every market on Earth.',
+          choices: [{ label: 'Then hear how it ends.', effect: ctx => { ctx.story.flag('vellBeaten'); ctx.playStory('vellResolveSeen', 'VELL_RESOLVE', 3, 'The name is secure', 'The House of Vell withdraws from the great routes. Your house carries the road now.'); }, next: '@close' }],
+        },
+        gone: { text: '(The Vell palazzo stands empty, the brass nameplate already pried from the door. The House of Vell has withdrawn from the great routes for good.) The market keeps no monument to a house that tried to buy what it could not understand. Yours, it will remember.', choices: [] },
       },
     },
   },

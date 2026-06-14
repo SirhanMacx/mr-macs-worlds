@@ -14,12 +14,56 @@ import { BUILDINGS, BRIDGES } from './game/worlds/word-harbor/content.js';
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------------------------------------------------------------- saves ----
-function gameSave(worldKey) {
+// Each world has a set of localStorage aliases it has ever saved under: the
+// internal world key the controller passes to createSave() (e.g. 'trade-winds')
+// AND the public def.key on the hub card (e.g. 'global9'). Worlds bumped their
+// save to v2 for the story rebuild — but old devices may still hold a v1. So the
+// reader is BOTH version-tolerant (scan every mmw-game-<alias>-vN, prefer the
+// highest N) AND alias-tolerant, so live progress shows no matter which key a
+// world ended up writing.
+const SAVE_ALIASES = {
+  'trade-winds': ['global9', 'trade-winds'],
+  'mind-atlas': ['appsych', 'mind-atlas'],
+  'word-harbor': ['enl', 'word-harbor'],
+};
+
+function parseSave(raw) {
   try {
-    const raw = JSON.parse(localStorage.getItem(`mmw-game-${worldKey}-v1`) || 'null');
-    return raw && typeof raw === 'object' ? raw : null;
+    const obj = JSON.parse(raw || 'null');
+    return obj && typeof obj === 'object' ? obj : null;
   } catch (e) { return null; }
 }
+
+function gameSave(worldKey) {
+  const aliases = SAVE_ALIASES[worldKey] || [worldKey];
+  let best = null, bestV = -1;
+  // 1) direct hits on known aliases, any version suffix we can find
+  for (const a of aliases) {
+    for (let v = 1; v <= 9; v++) {
+      const s = parseSave(safeGet(`mmw-game-${a}-v${v}`));
+      if (s) { const sv = (typeof s.v === 'number' ? s.v : v); if (sv >= bestV) { best = s; bestV = sv; } }
+    }
+  }
+  if (best) return best;
+  // 2) belt-and-braces: scan all keys with the mmw-game-<alias>- prefix in case
+  //    a world ever lands on an unexpected version suffix.
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      const hit = aliases.some(a => k.indexOf(`mmw-game-${a}-`) === 0);
+      if (!hit) continue;
+      const s = parseSave(localStorage.getItem(k));
+      if (!s) continue;
+      const m = k.match(/-v(\d+)$/);
+      const sv = (typeof s.v === 'number' ? s.v : (m ? +m[1] : 0));
+      if (sv >= bestV) { best = s; bestV = sv; }
+    }
+  } catch (e) { /* private mode */ }
+  return best;
+}
+
+function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 
 const GOOD_BASE = {}; GOODS.forEach(g => { GOOD_BASE[g.id] = g.base; });
 
@@ -61,10 +105,18 @@ const PROGRESS = {
   },
 };
 
+// Teaser hook shown on a FRESH card (no save yet) — the new story premises.
 const FRESH = {
-  'trade-winds': 'A new ledger. One donkey, 30 shekels, the whole world ahead.',
-  'mind-atlas': 'An unmapped mind. Five regions wait in the dark.',
-  'word-harbor': 'A boat approaches the shore. Your town is not built yet.',
+  'trade-winds': 'Your mother never came home from the eastern road. One donkey, her unfinished ledger, and a rival who means to erase your name. Rebuild the house.',
+  'mind-atlas': 'A mind has gone dark. You are its cartographer. Push back the Fog of every comforting lie until the mind can face the Exam of the Self.',
+  'word-harbor': 'You arrive by boat at dusk. The town is quiet and half-built. Learn a word, light a lamp, help a neighbor — and the harbor wakes.',
+};
+
+// The story title each card leads with (poster headline above the course tag).
+const STORY_TITLE = {
+  'trade-winds': 'The House of the Open Road',
+  'mind-atlas': 'The Atlas and the Fog',
+  'word-harbor': 'The Harbor That Was Waiting for You',
 };
 
 function esc(s) {
@@ -146,20 +198,45 @@ function refreshProgress(card, worldKey) {
   if (S) {
     const p = PROGRESS[worldKey](S);
     const frac = Math.max(0.02, Math.min(1, p.frac || 0));
+    prog.classList.remove('is-fresh');
     prog.innerHTML = p.html + `<span class="pg-bar"><i style="width:${(frac * 100).toFixed(1)}%"></i></span>`;
+    // a save exists → the story is underway: CONTINUE picks up where you left off,
+    // and the quiet "Begin anew" link starts the cold open over.
     play.textContent = 'CONTINUE';
     fresh.hidden = false;
+    card.classList.add('has-save');
   } else {
-    prog.innerHTML = `<span class="pg-line pg-fresh">${esc(FRESH[worldKey])}</span>`;
-    play.textContent = 'NEW GAME';
+    prog.classList.add('is-fresh');
+    // the full premise teaser already lives in .card-hook; here we just mark the
+    // card as an unopened story so BEGIN plays the cold open.
+    prog.innerHTML = `<span class="pg-line pg-fresh">A new story. Press BEGIN to play the opening.</span>`;
+    play.textContent = 'BEGIN';
     fresh.hidden = true;
+    card.classList.remove('has-save');
   }
+}
+
+// wipe every localStorage save a world may hold (all aliases, all versions) so
+// "Begin anew" truly starts the cold open over no matter which key it lives at.
+function wipeWorld(worldKey) {
+  const aliases = SAVE_ALIASES[worldKey] || [worldKey];
+  let toRemove = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && aliases.some(a => k.indexOf(`mmw-game-${a}-`) === 0)) toRemove.push(k);
+    }
+    for (const k of toRemove) localStorage.removeItem(k);
+  } catch (err) { /* private mode */ }
 }
 
 function wireCard(elId, def, worldKey, href) {
   const card = document.getElementById(elId);
   if (!card) return;
   paintMap(card.querySelector('canvas'), def, def.buildField());
+  // lead the card with its story title as the poster headline
+  const titleEl = card.querySelector('.card-saga-title');
+  if (titleEl && STORY_TITLE[worldKey]) titleEl.textContent = STORY_TITLE[worldKey];
   refreshProgress(card, worldKey);
 
   const go = () => { window.location.href = href; };
@@ -173,9 +250,9 @@ function wireCard(elId, def, worldKey, href) {
   card.querySelector('.play-btn').addEventListener('click', (e) => { e.stopPropagation(); go(); });
   card.querySelector('.new-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    const name = card.querySelector('h2').textContent;
-    if (!window.confirm(`Start ${name} over from the beginning? Your current save on this device will be erased.`)) return;
-    try { localStorage.removeItem(`mmw-game-${worldKey}-v1`); } catch (err) { /* private mode */ }
+    const name = (STORY_TITLE[worldKey] || card.querySelector('h2').textContent);
+    if (!window.confirm(`Begin "${name}" again from the very start? Your current progress on this device will be erased.`)) return;
+    wipeWorld(worldKey);
     go();
   });
 }

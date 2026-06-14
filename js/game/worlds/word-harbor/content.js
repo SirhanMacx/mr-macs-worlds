@@ -387,3 +387,173 @@ export const COMPASS = {
 
 // gentle Question Lanterns stall draws bank questions from these topics only
 export const LANTERN_TOPICS = ['Early Humans', 'Farming Revolution', 'Mesopotamia', 'Egypt + Indus', 'Silk Roads', 'Exploration'];
+
+// ===================================================================
+//  THE STORY: "The Harbor That Was Waiting for You"
+//  A gentle arrival story for newcomer English learners. NO villain,
+//  NO fear, NO timers, NO fail states. The only thing to push back is
+//  THE QUIET — the loneliness of not yet sharing words with anyone —
+//  and you push it back by learning words and helping neighbors.
+//  Mira the lamplighter is the warm mentor. Every line is short,
+//  TTS-able, and (where it matters) carries a 中文 + Español hint.
+//  De-identified: only invented townsfolk, no real names.
+// ===================================================================
+
+// ---------------- the cold open (plays once, on a new game) ----------------
+// Replaces the old wh-intro text card. The boat arrives at dusk; the town is
+// quiet and half-built; Mira lights a lamp and hands you your first word.
+// tint:'dusk' keeps it warm-blue; art:'portrait' shows Mira's gentle face.
+// Text is kept to a single short line per beat — the lowest density of any
+// world. The controller appends a final controls beat.
+export const MIRA_PALETTE = { robe: 0xe0a85a, trim: 0xb87a34, skin: 0xd9a066, hat: 0xf2d28a };
+
+export const COLD_OPEN = [
+  {
+    tint: 'dusk', kicker: 'The Harbor That Was Waiting for You',
+    text: 'Your boat reaches a warm island at dusk.',
+  },
+  {
+    tint: 'dusk',
+    text: 'The town is quiet. It is only half-built.',
+  },
+  {
+    tint: 'dusk',
+    text: 'The people smile. But you share no words yet.',
+  },
+  {
+    tint: 'dusk', art: 'portrait', palette: MIRA_PALETTE, kicker: 'Mira, the lamplighter',
+    text: 'A lamplighter named Mira lifts her light. "Welcome home," she says, slow and kind.',
+  },
+  {
+    tint: 'amber', art: 'portrait', palette: MIRA_PALETTE,
+    text: 'She gives you one word: HOME. One lamp glows. The quiet steps back.',
+  },
+  {
+    tint: 'amber', art: 'portrait', palette: MIRA_PALETTE,
+    text: 'Every word you learn lights one more lamp, and helps one more person.',
+  },
+];
+
+// ---------------- Mira: the warm recurring mentor ----------------
+// openDialogue tree, story-flag aware (mirrors the Trade Winds mentor shape).
+// She greets you, gives the first word, points you north, and returns later as
+// the town wakes. Choices are gentle full sentences, never A/B/C stems.
+export const MIRA = {
+  id: 'mira', name: 'Mira', title: 'The Lamplighter', city: 'home',
+  npcPos: [-7, 116],
+  palette: MIRA_PALETTE, hatKind: 'brim',
+  dialogue: {
+    // start() switches by story progress (set from the game controller ctx)
+    start: (ctx) => {
+      if (ctx.is && ctx.is('townLit')) return 'after';
+      if (ctx.wordCount && ctx.wordCount() >= 3) return 'wordsfound';
+      if (ctx.is && ctx.is('firstWord')) return 'gounder';
+      return 'greet';
+    },
+    nodes: {
+      greet: {
+        text: 'Welcome to our harbor. We are new here too — most of us came by boat, like you. The town is quiet because we are still learning each other\'s words. Here is your first one, a gift: HOME. Say it with me, and a lamp will light.',
+        choices: [
+          { label: 'Home. This is my home now.', effect: ctx => { ctx.flag && ctx.flag('firstWord'); ctx.lightLamp && ctx.lightLamp('Mira gives you your first word.'); }, next: 'gounder' },
+          { label: 'Why is the town so quiet?', next: 'quiet' },
+        ],
+      },
+      quiet: {
+        text: 'We call it the Quiet. It is not sad — it is just the space before we understand each other. Every word you learn fills a little of it with light. Soon the whole town will be talking. You will see.',
+        choices: [
+          { label: 'Then I will learn the words. Show me how.', effect: ctx => { ctx.flag && ctx.flag('firstWord'); ctx.lightLamp && ctx.lightLamp('Mira gives you your first word.'); }, next: 'gounder' },
+        ],
+      },
+      gounder: {
+        text: 'Good. See the shining gems on the beach? Each one is a word. Tap a gem to hear it in your language and in English. Collect three, then build the first bridge to the north — to Geography Isle, where you learn the words that hold the whole world together.',
+        choices: [
+          { label: 'I will collect the words and go north.', next: '@close' },
+        ],
+      },
+      wordsfound: {
+        text: 'Look at you — three words already, three lamps brighter. The Quiet is smaller today. Now build the Compass Bridge to the north and cross to Geography Isle. The Mapmaker is waiting there. Every word you carry lets you help one more neighbor.',
+        choices: [
+          { label: 'I am ready to cross.', next: '@close' },
+          { label: 'How do I help a neighbor?', next: 'helphow' },
+        ],
+      },
+      helphow: {
+        text: 'Simple. When a neighbor needs a word, give it. Use the RIGHT words and a warm scene of our town opens — a story, a memory, a new friend. If the words are not quite right, no harm at all. You try again. Here, kindness has no wrong turns.',
+        choices: [
+          { label: 'Thank you, Mira. I will try.', next: '@close' },
+        ],
+      },
+      after: {
+        text: 'You did it. The town is lit, the bridges are crossed, the Quiet is only a memory now. You arrived with a boat and built a home out of words. When you are ready, the whole town will gather for the Time Travel Festival — and you will tell our story, in the sentences you made yourself.',
+        choices: [
+          { label: 'I would like that very much.', next: '@close' },
+        ],
+      },
+    },
+  },
+};
+
+// ---------------- the keystone neighbor (gentle "help with the right word") --
+// Bula has lost their word for the thing they need. Using the RIGHT word opens
+// a warm scene (a lamp lights, the standing meter rises). A not-quite-right
+// word never fails — Mira-in-spirit re-teaches gently and you try again.
+// The "concept" the player must understand: a WORD names a real thing, and the
+// right word is the one whose MEANING matches what the neighbor needs. Pictures
+// carry the meaning so an emerging reader can succeed without decoding text.
+export const KEYSTONE = {
+  id: 'bula', name: 'Bula', title: 'A neighbor by the well', city: 'home',
+  npcPos: [12, 104],
+  palette: { robe: 0x5d8a6e, trim: 0x39512f, skin: 0x8a5a33, hat: 0x6b8f5d }, hatKind: 'cap',
+  // Bula points at the dry well and the compass; needs the word that means
+  // "which way" so the town can find fresh water. The right word is COMPASS.
+  pic: 'compass',
+  prompt: {
+    en: 'Bula points at the dry well, then far away. Bula needs one word: which way to walk to find water. Which word do you give?',
+    zh: '布拉指着干井，又指向远方。布拉需要一个词：往哪个方向走去找水。你给哪个词？',
+    es: 'Bula señala el pozo seco y luego a lo lejos. Bula necesita una palabra: hacia dónde caminar para hallar agua. ¿Qué palabra le das?',
+  },
+  // Choices are full, in-character offers of a word (gentle "say" lines).
+  choices: [
+    {
+      word: 'compass', pic: 'compass', right: true,
+      label: 'Here is COMPASS — it shows you which way to walk.',
+    },
+    {
+      word: 'gem', pic: 'gem', right: false,
+      label: 'Here is GEM — a pretty shining stone.',
+      // gentle re-teach: a gem is lovely but it does not point the way
+      reteach: {
+        en: 'A gem is lovely, but it cannot point the way. Bula needs the word for the tool that shows direction. Look at the picture again.',
+        zh: '宝石很漂亮，但不能指方向。布拉需要那个表示方向工具的词。再看看图。',
+        es: 'Una gema es bonita, pero no puede señalar el camino. Bula necesita la palabra de la herramienta que muestra la dirección. Mira el dibujo otra vez.',
+      },
+    },
+    {
+      word: 'boat', pic: 'boat', right: false,
+      label: 'Here is BOAT — it carries you over the water.',
+      reteach: {
+        en: 'A boat sails the sea, but Bula must walk on land to the water. Which small tool tells you north, east, south, and west? Look again.',
+        zh: '船在海上行驶，但布拉要在陆地上走去找水。哪个小工具能告诉你东南西北？再看一看。',
+        es: 'Un barco navega el mar, pero Bula debe caminar por tierra hasta el agua. ¿Qué pequeña herramienta te dice norte, este, sur y oeste? Mira otra vez.',
+      },
+    },
+  ],
+  // shown when the right word is given: a warm scene opens
+  win: {
+    en: 'Bula\'s face lights up. "COMPASS! Yes!" Bula walks north and finds the spring. A lamp glows by the well, and the town has fresh water again.',
+    zh: '布拉的脸亮了起来。"指南针！对！"布拉往北走，找到了泉水。井边一盏灯亮了，小镇又有了清水。',
+    es: 'La cara de Bula se ilumina. "¡BRÚJULA! ¡Sí!" Bula camina al norte y halla el manantial. Una lámpara brilla junto al pozo y el pueblo tiene agua otra vez.',
+  },
+};
+
+// ---------------- "THE QUIET" — the gentle pressure (never scary) ----------
+// A soft motif, not an enemy. The Quiet RECEDES as you collect words and help
+// neighbors. The controller maps progress (words found + bridges + buildings +
+// helped neighbors) to a 0..100 "town light" meter; these strings narrate it.
+export const QUIET_STAGES = [
+  { upTo: 5,   light: 'The Quiet is wide tonight. Light it up, one word at a time.' },
+  { upTo: 25,  light: 'A few lamps glow now. The town is waking.' },
+  { upTo: 55,  light: 'Half the harbor shines. Neighbors are starting to talk.' },
+  { upTo: 85,  light: 'The streets are warm with light and voices.' },
+  { upTo: 101, light: 'The whole town glows. The Quiet is only a memory.' },
+];

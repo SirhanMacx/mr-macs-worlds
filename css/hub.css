@@ -71,27 +71,43 @@ html, body {
 }
 .card-map canvas.painted { opacity: 1; }
 .card-saga {
-  position: absolute; left: 12px; top: 11px; z-index: 1;
+  position: absolute; left: 12px; top: 11px; z-index: 2;
   font: 800 10.5px/1 system-ui; letter-spacing: 0.28em; text-indent: 0.28em;
   color: #ffe9b0; background: rgba(8, 12, 24, 0.78); border: 1px solid rgba(255, 209, 102, 0.4);
   padding: 6px 9px; border-radius: 9px;
 }
 
-.card-body { display: flex; flex-direction: column; flex: 1; padding: 15px 17px 16px; }
-.card-course {
-  margin: 0 0 3px; color: var(--accent); font-weight: 700; font-size: 12px;
-  letter-spacing: 0.05em;
+/* the map is now a STORY POSTER: the story title + course sit on the painted
+   map, anchored to the bottom with a soft scrim so they read over any biome. */
+.card-poster {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+  padding: 26px 16px 13px; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(6, 10, 22, 0.4) 38%, rgba(6, 10, 22, 0.88));
 }
-.card-body h2 { margin: 0 0 7px; font: 800 25px/1.1 Georgia, serif; letter-spacing: 0.01em; color: #f6edd8; }
-.card-hook { margin: 0; color: var(--ink-dim); font-size: 13.5px; line-height: 1.55; }
+.card-poster .card-course {
+  margin: 0 0 4px; color: #bcd6ff; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.06em; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+.card-saga-title {
+  margin: 0; font: 800 clamp(19px, 4.4vw, 24px)/1.12 Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.01em; color: #fbf1d8;
+  text-shadow: 0 2px 14px rgba(8, 6, 0, 0.85), 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.card-body { display: flex; flex-direction: column; flex: 1; padding: 14px 17px 16px; }
+.card-hook {
+  margin: 0; color: #c3cfe9; font-size: 13.5px; line-height: 1.55; font-style: italic;
+}
 
 .card-progress {
   margin: 12px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-dim);
   border-top: 1px dashed rgba(122, 152, 220, 0.25); padding-top: 10px;
 }
+/* a fresh, unopened story gets a quieter, borderless line — no progress yet. */
+.card-progress.is-fresh { border-top: none; padding-top: 6px; }
 .card-progress b { color: var(--gold); font-weight: 800; }
 .card-progress .pg-line { display: block; }
-.card-progress .pg-fresh { color: rgba(167, 179, 209, 0.8); font-style: italic; }
+.card-progress .pg-fresh { color: rgba(167, 179, 209, 0.72); }
 .pg-bar {
   display: block; height: 5px; border-radius: 3px; margin-top: 7px;
   background: rgba(255, 255, 255, 0.08); overflow: hidden;
@@ -133,7 +149,8 @@ html, body {
 @media (max-width: 640px) {
   .hub { padding-top: 26px; }
   .cards { margin-top: 24px; }
-  .card-body h2 { font-size: 22px; }
+  .card-poster { padding: 22px 14px 11px; }
+  .card-saga-title { font-size: 21px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .card, .play-btn { transition: none; }

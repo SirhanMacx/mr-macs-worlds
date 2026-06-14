@@ -9,6 +9,8 @@ import * as Panels from '../../../learn/panels.js';
 import * as Audio from '../../../engine/audio.js';
 
 import { createSave } from '../../save.js';
+import { createStory } from '../../story.js';
+import { playCutscene } from '../../cutscene.js';
 import { createXP } from '../../xp.js';
 import { createNPCSystem } from '../../npc.js';
 import { createParticles } from '../../particles.js';
@@ -19,6 +21,7 @@ import * as Sfx from '../../sfx.js';
 import {
   EXAM, ABILITIES, REGIONS, ORDER, CASE_REGION, DENIZENS,
   CASE_FILES, WRAITHS, REINFORCEMENT,
+  COLD_OPEN, ATLAS_VOICE, FOG,
 } from './content.js';
 import { PUZZLES, openReinforcement } from './puzzles.js';
 import { openWraith } from './wraith.js';
@@ -29,7 +32,7 @@ const esc = UI.esc;
 const REGION_BY = {}; REGIONS.forEach(r => { REGION_BY[r.id] = r; });
 
 const DEFAULTS = {
-  v: 1,
+  v: 2, // bumped for the story rebuild — old pre-story saves reset so the cold open plays
   insight: 0, xp: 0, level: 1, perkPts: 0,
   confidence: 100,
   regions: {},          // id -> { puzzle, wraith, restored, reinforcement }
@@ -38,6 +41,11 @@ const DEFAULTS = {
   scrolls: 0,           // 0..3 evidence scrolls gathered (Case Files gate)
   cases: {},            // caseId -> solved bool
   flags: {},
+  // narrative spine — chapter/beat/flags migrate cleanly onto old saves.
+  // CLARITY is the emotional meter: it rises as the Fog recedes / regions
+  // are restored (the inverse of the Fog's grip on the mind).
+  story: { chapter: 0, beat: 'coldopen', flags: {} },
+  clarity: 0,
   pos: null,
 };
 
@@ -50,6 +58,8 @@ export async function initGame(api) {
   const store = createSave('mind-atlas', DEFAULTS);
   const S = store.state;
   const save = () => store.save();
+  if (typeof S.clarity !== 'number') S.clarity = 0; // defensive for pre-story saves
+  const story = createStory({ state: S, save });
   function rec(id) { if (!S.regions[id]) S.regions[id] = { puzzle: false, wraith: false, restored: false, reinforcement: false }; return S.regions[id]; }
 
   // ---------- systems ----------
@@ -68,7 +78,9 @@ export async function initGame(api) {
 
   // ---------- g: the interface puzzles/wraiths/cases use ----------
   const g = {
-    S,
+    S, story,
+    // the Fog escalates region to region — wraith.js reads this to pick its line
+    regionsRestored() { return regionsRestored(); },
     fx(kind, n) { particles.burst(kind, player.pos.x, player.pos.y, player.pos.z, n || (kind === 'confetti' ? 30 : 14)); },
     hasAbility(id) { return !!S.abilities[id]; },
     confidence() { return S.confidence; },
@@ -90,28 +102,56 @@ export async function initGame(api) {
   };
 
   // ---------- HUD ----------
+  // namespaced inline style for the Clarity meter + Atlas-speaks button (no
+  // edits to css/game.css — these reuse the .mb-* idiom of the existing HUD).
+  if (!document.getElementById('ma-story-style')) {
+    const st = document.createElement('style');
+    st.id = 'ma-story-style';
+    st.textContent = `
+      #mind-bar .mb-clarity .mb-clarbar{display:inline-block;width:74px;height:8px;border-radius:5px;
+        background:rgba(20,16,40,0.85);box-shadow:inset 0 0 0 1px rgba(176,124,255,0.35);overflow:hidden;vertical-align:middle;margin-left:5px;}
+      #mind-bar .mb-clarity .mb-clarbar i{display:block;height:100%;width:0%;
+        background:linear-gradient(90deg,#7df2e0,#ffd27f);transition:width .5s ease;}
+      #mind-bar .mb-clarity{color:#cde8ff;}
+      #mind-bar #mb-atlasvoice{margin-left:6px;}`;
+    document.head.appendChild(st);
+  }
+
   const bar = document.createElement('div');
   bar.id = 'mind-bar';
   bar.innerHTML = `
     <div class="mb-block mb-ins" title="Insight — earned by solving the mind"><span class="mb-dot"></span><b id="mb-ins">0</b></div>
-    <div class="mb-block mb-conf" title="Confidence — your strength against Misconception Wraiths">
+    <div class="mb-block mb-clarity" title="Clarity — the mind knowing itself again as the Fog recedes">
+      <span class="mb-lab">CLARITY</span><span class="mb-clarbar"><i id="mb-clarfill"></i></span></div>
+    <div class="mb-block mb-conf" title="Confidence — your strength when you face the Fog">
       <span class="mb-lab">CONF</span><span class="mb-confbar"><i id="mb-conffill"></i></span></div>
     <div class="mb-block mb-lvl" title="Cartographer level"><span class="mb-lab">LV</span> <b id="mb-level">1</b>
       <span class="mb-xpbar"><i id="mb-xpfill"></i></span></div>
-    <div class="mb-block mb-reg" title="Regions restored"><span class="mb-lab">RESTORED</span> <b id="mb-reg">0/5</b></div>
+    <div class="mb-block mb-reg" title="Regions restored — the Fog driven back"><span class="mb-lab">RESTORED</span> <b id="mb-reg">0/5</b></div>
     <div class="mb-block mb-exam" title="The in-world exam date"><span class="mb-lab">EXAM</span> <b>${esc(EXAM.label)}</b></div>
     <div class="mb-block mb-abil" id="mb-abil" title="Abilities earned"></div>
-    <button id="mb-atlas" class="mb-btn">ATLAS</button>`;
+    <button id="mb-atlas" class="mb-btn" title="The atlas of the mind — regions, abilities, cases">ATLAS</button>
+    <button id="mb-atlasvoice" class="mb-btn" title="Speak with Atlas, the mind's guide">ATLAS SPEAKS</button>`;
   document.body.appendChild(bar);
   bar.querySelector('#mb-atlas').addEventListener('click', () => { Sfx.click(); openAtlas(); });
+  bar.querySelector('#mb-atlasvoice').addEventListener('click', () => { Sfx.click(); speakWithAtlas(); });
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
     if (e.code === 'KeyM' || e.code === 'KeyJ') { e.stopImmediatePropagation(); openAtlas(); }
   }, true);
 
   function regionsRestored() { return ORDER.filter(id => rec(id).restored).length; }
+  // CLARITY: emotional spine. The mind knows itself again as the Fog recedes.
+  // Driven primarily by regions restored (each = 20%), nudged by clarity bumps
+  // from story beats, capped at 100. Inverse of the Fog's grip.
+  function clarityNow() {
+    const base = regionsRestored() * 20;
+    return Math.max(0, Math.min(100, base + (S.clarity || 0)));
+  }
   function refreshHud() {
     bar.querySelector('#mb-ins').textContent = S.insight;
+    const clar = bar.querySelector('#mb-clarfill');
+    if (clar) clar.style.width = clarityNow() + '%';
     bar.querySelector('#mb-conffill').style.width = Math.round((S.confidence / MAXCONF) * 100) + '%';
     bar.querySelector('#mb-conffill').className = S.confidence < 30 ? 'low' : '';
     const pr = xp.progress();
@@ -147,17 +187,19 @@ export async function initGame(api) {
   {
     const st = stations.list.find(s => s.id === 'mcq');
     if (st) {
-      st.label = 'The Examination Gate'; st.sub = 'Trial of the Self'; st.verb = 'Approach';
+      st.label = 'The Examination Gate'; st.sub = 'Face the Fog — Trial of the Self'; st.verb = 'Approach';
       st.onInteract = () => {
         if (regionsRestored() < 5) {
           Sfx.denied();
-          Panels.toast('The gate is sealed until all five regions are restored. Restore the mind first.');
+          Panels.toast('The gate is sealed while the Fog still holds a region. Restore all five, then come face it here.');
           return;
         }
-        openTrial(g, (c, n) => {
-          UI.banner('Trial passed', `${c} of ${n} — the atlas stands ready for ${EXAM.long}`);
+        const startTrial = () => openTrial(g, (c, n) => {
+          UI.banner('The Self is whole', `${c} of ${n} — the mind answered itself, and the Fog has nowhere left to hide.`);
           g.xp(60, 'Trial of the Self'); S.flags.trial = true; save();
         });
+        // first approach with all five restored = the Fog's final confrontation
+        fogFinale(startTrial);
       };
     }
   }
@@ -225,6 +267,18 @@ export async function initGame(api) {
     });
   }
 
+  // dialogue context (mirrors Trade Winds' dialogueCtx): denizens + Atlas can
+  // touch story flags, the Clarity meter, and ability checks from their effects.
+  function dialogueCtx(spec) {
+    return {
+      state: S, story,
+      regionsRestored,
+      hasAbility(id) { return !!S.abilities[id]; },
+      raiseClarity(n, title, sub) { raiseClarity(n, title, sub); },
+      insight(n, label) { g.insight(n, label); },
+    };
+  }
+
   // ---------- denizens (mind NPCs) ----------
   for (const key in DENIZENS) {
     const spec = DENIZENS[key];
@@ -240,8 +294,29 @@ export async function initGame(api) {
     stations.addExtra({
       id: 'denizen-' + spec.id, type: 'npc', verb: 'Speak with', label: spec.name,
       pos: npc.group.position, interactR: 5,
-      onInteract() { openDialogue(npc, spec.dialogue, {}); },
+      onInteract() { openDialogue(npc, spec.dialogue, dialogueCtx(spec)); },
     });
+  }
+
+  // ---------- ATLAS, the mentor voice ----------
+  // Atlas has no body — it is the mind's own sense of itself. We speak with it
+  // through the standard dialogue overlay using a synthetic NPC + the lighthouse
+  // palette. The start node is story-flag-aware (frames the first move, reacts
+  // as regions return). Summon it from the HUD or after key story moments.
+  const atlasNpc = { name: ATLAS_VOICE.name, title: ATLAS_VOICE.title, palette: ATLAS_VOICE.palette, talking: false };
+  function speakWithAtlas() {
+    openDialogue(atlasNpc, ATLAS_VOICE.dialogue, dialogueCtx({}));
+  }
+
+  // raise CLARITY — the emotional spine. A satisfying sting + a sparkle/confetti
+  // burst + a banner, so a story win FEELS like the mind clearing, not a score.
+  function raiseClarity(n, title, sub) {
+    S.clarity = Math.max(0, (S.clarity || 0) + n);
+    save();
+    try { Sfx.houseRise(); } catch (e) { Sfx.good(); }
+    particles.burst('sparkle', player.pos.x, player.pos.y + 1.5, player.pos.z, 22);
+    if (title) UI.banner(title, sub || '', 3400);
+    refreshHud();
   }
 
   // ---------- evidence scrolls (Case Files gather step) ----------
@@ -341,17 +416,23 @@ export async function initGame(api) {
     if (r.restored) return;
     if (r.puzzle && r.wraith) {
       r.restored = true;
-      // grant ability
+      // grant ability — Atlas gets a piece of itself back, which opens the next
       S.abilities[region.grants] = true;
+      if (story.chapter < 1) story.chapter = 1;
+      story.advance(); // a chapter per region restored
+      story.flag('fog_cleared_' + region.id);
       save();
       applyAbilities();
       const ab = ABILITIES[region.grants];
       Sfx.eraUnlock();
-      UI.banner(`${region.name} restored — ${ab.name} gained`, ab.desc, 4200);
+      UI.banner(`${region.name} restored — the Fog recedes`, `Atlas returns ${ab.name} to you: ${ab.desc}`, 4400);
       particles.burst('confetti', player.pos.x, player.pos.y + 2, player.pos.z, 40);
       g.insight(50, region.name + ' restored');
+      raiseClarity(0, null, null); // refresh the Clarity meter (regions drive it)
       refreshHud();
       updateBeacon();
+      // Atlas reacts to the restored region (the recurring mentor beat)
+      setTimeout(() => { if (!UI.isOpen() && !S.flags.won) speakWithAtlas(); }, 1200);
       checkWin();
     } else {
       // re-open hub so the next step is obvious
@@ -366,11 +447,24 @@ export async function initGame(api) {
   function checkWin() {
     if (S.flags.won) return;
     if (regionsRestored() >= 5) {
-      S.flags.won = true; save();
+      S.flags.won = true;
+      story.flag('atlas_whole');
+      save();
       Sfx.examPass();
-      UI.banner('THE MIND ATLAS IS WHOLE', `All five regions restored before ${EXAM.long}. The Examination Gate now opens for the optional Trial of the Self.`, 6000);
+      UI.banner('THE MIND ATLAS IS WHOLE', `All five regions restored before ${EXAM.long}. The Fog has fled to its core — the Examination Gate now opens to face it.`, 6000);
       particles.burst('confetti', player.pos.x, player.pos.y + 2, player.pos.z, 50);
     }
+  }
+
+  // THE FOG'S FINAL CONFRONTATION — played as a cutscene at the Examination
+  // Gate the first time it is approached with all five regions restored.
+  function fogFinale(then) {
+    if (S.flags.fogFinale) { then && then(); return; }
+    S.flags.fogFinale = true; save();
+    playCutscene(FOG.finale).then(() => {
+      raiseClarity(100, 'The Fog is gone', 'The mind knows itself, end to end. Clarity is total.');
+      then && then();
+    });
   }
 
   // ---------- case files ----------
@@ -520,29 +614,38 @@ export async function initGame(api) {
   if (S.pos) player.teleport(S.pos[0], S.pos[1]);
   Sfx.startAmbient();
 
+  // ---------- cold open ----------
+  // New Game opens on the inciting incident, not a menu: the mind gone dark,
+  // Atlas's fading light, the Fog that scattered the regions, the Exam that
+  // looms. The story begins (chapter 1). Replaces the old text intro card.
   if (!S.flags.intro) {
-    S.flags.intro = true; save();
-    UI.push({
-      className: 'gui-ma gui-intro',
-      html: `<div class="ma-card intro-card">
-        <div class="intro-kicker">MIND ATLAS</div>
-        <h2>Restore the five regions before the Exam of the Self.</h2>
-        <p>You are a Mind Cartographer, shrunk into a vast inner world. Five regions of the mind have fragmented. In each you will <b>solve a concept-puzzle</b> — route neural signals, carry memory orbs, condition a companion, judge a crowd, rebuild a thought — and <b>dispel a Misconception Wraith</b> that voices a tempting wrong idea.</p>
-        <p>Restoring a region earns a psych-themed <b>ability</b> that opens the gate to the next. Gather evidence at the Observatory for the <b>Case Files</b>. Whole the atlas before ${esc(EXAM.long)}.</p>
-        <p class="intro-keys">${isMobile ? 'Left stick to move, drag right side to look. TAP prompts to act.' : 'WASD to move, mouse to look, SHIFT to run, E to interact.'} M / J — atlas.</p>
-        <button class="ma-go prim" data-gui-close>ENTER THE MIND</button>
-      </div>`,
-      dismissible: true,
+    S.flags.intro = true;
+    if (story.chapter < 1) story.chapter = 1;
+    save();
+    refreshHud();
+    const controlsBeat = {
+      tint: 'dusk', kicker: 'The inner world',
+      text: (isMobile
+        ? 'Left stick to move, drag the right side to look. TAP a glowing prompt to act. M — the atlas; ATLAS SPEAKS — your guide. Begin at the Neural Caverns, where the mind is wired.'
+        : 'WASD to move, mouse to look, SHIFT to run, E to interact. M — the atlas; the ATLAS SPEAKS button summons your guide. Begin at the Neural Caverns, where the mind is wired.'),
+      cta: 'Enter the mind',
+    };
+    playCutscene([...COLD_OPEN, controlsBeat]).then(() => {
+      // hand off to the mentor: Atlas frames the first move.
+      if (!UI.isOpen()) speakWithAtlas();
     });
   }
 
   // ---------- debug / verification hook ----------
   const game = {
-    S, xp, save: () => save(),
+    S, xp, story, save: () => save(),
     regionsRestored, rec,
-    openRegionHub, openCaseMenu, openAtlas,
+    openRegionHub, openCaseMenu, openAtlas, speakWithAtlas, raiseClarity,
     debug: {
       goto(id) { const st = stations.list.find(s => s.id === id); if (st) player.teleport(st.pos.x, st.pos.z - 6); },
+      coldOpen() { return Array.isArray(COLD_OPEN) && COLD_OPEN.length > 0; },
+      atlasSpeaks() { speakWithAtlas(); return true; },
+      fogFinale() { fogFinale(() => {}); return true; },
       // drive a region's concept puzzle to completion through the real logic
       solvePuzzle(regionId) {
         const region = REGION_BY[regionId];
@@ -558,15 +661,21 @@ export async function initGame(api) {
         UI.closeAll();
         return rec(regionId).wraith;
       },
-      // attempt a wraith but answer WRONG once to prove confidence cost
+      // face the Fog and answer WRONG once: proves the Fog THICKENS + Atlas
+      // coaches you back to the truth (a consequence + re-teach, NOT a red X).
       wraithWrong(regionId) {
         const before = S.confidence;
         startWraith(REGION_BY[regionId]);
-        // click a wrong refutation directly
+        // step past the Fog's taunt into the fight
+        const faceIt = document.querySelector('.ma-wraith #ma-faceit');
+        if (faceIt) faceIt.click();
+        // click a wrong in-character answer
         const btns = document.querySelectorAll('.ma-wraith .ma-reframe');
         const wrong = Array.from(btns).find(b => b.dataset.ok === '0');
         if (wrong) wrong.click();
-        return { before, after: S.confidence };
+        // the Atlas coaching beat (mentor consequence) should now be showing
+        const coached = !!document.querySelector('.ma-wraith #ma-retry');
+        return { before, after: S.confidence, coached };
       },
       restore(regionId) { this.solvePuzzle(regionId); this.solveWraith(regionId); return rec(regionId).restored; },
       passGate(regionId) { tryGate(REGION_BY[regionId]); return !!S.gates[regionId]; },
